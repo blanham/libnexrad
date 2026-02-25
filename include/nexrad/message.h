@@ -34,50 +34,55 @@
 #include <nexrad/graphic.h>
 #include <nexrad/tabular.h>
 #include <nexrad/packet.h>
+#include <nexrad/level2.h>
 
 #define NEXRAD_MESSAGE_MAX_BODY_SIZE 8388608
 #define NEXRAD_MESSAGE_MAX_SIZE     10485760
 
 /*!
  * \file nexrad/message.h
- * \brief Interface to NEXRAD Level III product message files
+ * \brief Interface to NEXRAD product message files
  *
- * An interface to NEXRAD Level III product message files, allowing one to
- * access the contents of any of the five Product Message Blocks in an
- * iterable fashion.
+ * An interface to NEXRAD Level II and Level III product message files.
  */
 
 typedef struct _nexrad_message nexrad_message;
 
+enum nexrad_level {
+    NEXRAD_LEVEL_UNKNOWN = 0,
+    NEXRAD_LEVEL_2       = 2,
+    NEXRAD_LEVEL_3       = 3
+};
+
 /*!
- * \defgroup message NEXRAD Level III product message functions
+ * \defgroup message NEXRAD product message functions
  */
 
 /*!
  * \ingroup message
- * \brief Load a NEXRAD Level III product message file from memory
+ * \brief Load a NEXRAD product message file from memory
  * \param buf Pointer to a memory buffer
  * \param len Size of memory buffer in `len`
- * \return An object representing a NEXRAD Level III product message file
+ * \return An object representing a NEXRAD product message file
  *
- * Load a NEXRAD Level III product message from a sized memory buffer.
+ * Load a NEXRAD product message from a sized memory buffer.
  */
 nexrad_message *nexrad_message_open_buf(void *buf, size_t len);
 
 /*!
  * \ingroup message
- * \brief Load a NEXRAD Level III product message file from disk
- * \param path A path to a NEXRAD Level III product message file on disk
- * \return An object representing a NEXRAD Level III Product message file
+ * \brief Load a NEXRAD product message file from disk
+ * \param path A path to a NEXRAD product message file on disk
+ * \return An object representing a NEXRAD Product message file
  *
- * Load a NEXRAD Level III product message file from disk.
+ * Load a NEXRAD product message file from disk.
  */
 nexrad_message *nexrad_message_open(const char *path);
 
 /*!
  * \ingroup message
  * \brief Destroy a nexrad_message object
- * \param message An opened NEXRAD Level III message file
+ * \param message An opened NEXRAD message file
  *
  * Free any state associated with an opened message file, and deallocate the
  * memory storing the object itself.  Furthermore, any memory-mapped state is
@@ -88,11 +93,15 @@ void nexrad_message_destroy(nexrad_message *message);
 /*!
  * \ingroup message
  * \brief Close a `nexrad_message` object
- * \param message An opened NEXRAD Level III message file
+ * \param message An opened NEXRAD message file
  *
  * A wrapper to `nexrad_message_destroy()`.
  */
 void nexrad_message_close(nexrad_message *message);
+
+enum nexrad_level nexrad_message_get_level(nexrad_message *message);
+
+/* Level III accessors */
 
 nexrad_message_header *nexrad_message_get_header(nexrad_message *message);
 
@@ -103,6 +112,16 @@ nexrad_symbology_block *nexrad_message_get_symbology_block(nexrad_message *messa
 nexrad_graphic_block *nexrad_message_get_graphic_block(nexrad_message *message);
 
 nexrad_tabular_block *nexrad_message_get_tabular_block(nexrad_message *message);
+
+/* Level II accessors */
+
+nexrad_level2_volume_header *nexrad_message_get_level2_volume_header(nexrad_message *message);
+
+int nexrad_message_next_level2_record(nexrad_message *message,
+    nexrad_level2_message_header **header,
+    void **data,
+    size_t *size
+);
 
 /*!
  * \ingroup message

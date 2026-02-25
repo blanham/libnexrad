@@ -37,6 +37,8 @@
 #define NEXRAD_MESSAGE_UNKNOWN_FOOTER "\x0d\x0d\x0a\x03"
 
 struct _nexrad_message {
+    enum nexrad_level level;
+
     size_t size;
     size_t page_size;
     size_t mapped_size;
@@ -44,6 +46,7 @@ struct _nexrad_message {
     void * data;
     void * body;
 
+    /* Level III specific */
     nexrad_unknown_header *      unknown_header;
     nexrad_wmo_header *          wmo_header;
     nexrad_message_header *      message_header;
@@ -51,6 +54,13 @@ struct _nexrad_message {
     nexrad_symbology_block *     symbology;
     nexrad_graphic_block *       graphic;
     nexrad_tabular_block *       tabular;
+
+    /* Level II specific */
+    nexrad_level2_volume_header * level2_volume_header;
+    size_t                        level2_offset;
+    void *                        level2_buffer;
+    size_t                        level2_buffer_size;
+    size_t                        level2_buffer_offset;
 
     enum nexrad_product_compression_type compression;
 };
@@ -188,6 +198,17 @@ error_decompress_size:
     return NULL;
 }
 
+static int _message_index_level2(nexrad_message *message) {
+    if (message->size < NEXRAD_LEVEL2_VOLUME_HEADER_SIZE) {
+        return -1;
+    }
+
+    message->level2_volume_header = (nexrad_level2_volume_header *)message->data;
+    message->level = NEXRAD_LEVEL_2;
+
+    return 0;
+}
+
 /*
  * Perform an initial parse of the NEXRAD Radar Product Generator Message and
  * produce a high-level table-of-contents indicating the locations of the five
@@ -206,10 +227,19 @@ static int _message_index(nexrad_message *message) {
     size_t message_offset        = 0;
     size_t message_size_expected = message->size;
 
+    message->level          = NEXRAD_LEVEL_UNKNOWN;
     message->unknown_header = NULL;
     message->wmo_header     = NULL;
     message->body           = NULL;
     message->compression    = NEXRAD_PRODUCT_COMPRESSION_NONE;
+    message->level2_volume_header = NULL;
+
+    /*
+     * Check for Level II signature
+     */
+    if (memcmp(message->data, "AR2V", 4) == 0 || memcmp(message->data, "ARCHIVE2", 8) == 0) {
+        return _message_index_level2(message);
+    }
 
     if (memcmp((char *)message->data + message_offset, NEXRAD_HEADER_UNKNOWN_SIGNATURE, 4) == 0) {
         message->unknown_header = (nexrad_unknown_header *)((char *)message->data + message_offset);
@@ -228,6 +258,8 @@ static int _message_index(nexrad_message *message) {
     } else {
         goto error_invalid_message_header;
     }
+
+    message->level = NEXRAD_LEVEL_3;
 
     message_size_expected -= message_offset;
 
@@ -398,6 +430,10 @@ void nexrad_message_destroy(nexrad_message *message) {
         free(message->body);
     }
 
+    if (message->level2_buffer) {
+        free(message->level2_buffer);
+    }
+
     message->size           = 0;
     message->page_size      = 0;
     message->body           = NULL;
@@ -416,6 +452,99 @@ void nexrad_message_destroy(nexrad_message *message) {
 
 void nexrad_message_close(nexrad_message *message) {
     nexrad_message_destroy(message);
+}
+
+enum nexrad_level nexrad_message_get_level(nexrad_message *message) {
+    if (message == NULL) {
+        return NEXRAD_LEVEL_UNKNOWN;
+    }
+
+    return message->level;
+}
+
+nexrad_level2_volume_header *nexrad_message_get_level2_volume_header(nexrad_message *message) {
+    if (message == NULL) {
+        return NULL;
+    }
+
+    return message->level2_volume_header;
+}
+
+int nexrad_message_next_level2_record(nexrad_message *message,
+    nexrad_level2_message_header **header,
+    void **data,
+    size_t *size
+) {
+    if (message == NULL || message->level != NEXRAD_LEVEL_2) {
+        return -1;
+    }
+
+    /* Initial offset after volume header */
+    if (message->level2_offset == 0) {
+        message->level2_offset = NEXRAD_LEVEL2_VOLUME_HEADER_SIZE;
+    }
+
+    /* Check if we have data in the uncompressed buffer */
+    if (message->level2_buffer == NULL || message->level2_buffer_offset >= message->level2_buffer_size) {
+        /* Need to load next block */
+        if (message->level2_offset + 4 > message->size) {
+            return 0; /* EOF */
+        }
+
+        /* Check for BZIP2 block */
+        uint32_t block_size;
+        memcpy(&block_size, (char *)message->data + message->level2_offset, 4);
+        block_size = be32toh(block_size);
+
+        if (block_size == 0) {
+             return 0; /* EOF */
+        }
+
+        if (message->level2_offset + 4 + block_size > message->size) {
+            return -1; /* Malformed */
+        }
+
+        void *compressed_data = (char *)message->data + message->level2_offset + 4;
+
+        if (memcmp(compressed_data, "BZh", 3) == 0) {
+            if (message->level2_buffer == NULL) {
+                message->level2_buffer = malloc(NEXRAD_MESSAGE_MAX_BODY_SIZE);
+                if (message->level2_buffer == NULL) return -1;
+            }
+
+            unsigned int dest_len = NEXRAD_MESSAGE_MAX_BODY_SIZE;
+            int res = BZ2_bzBuffToBuffDecompress(message->level2_buffer, &dest_len, compressed_data, block_size, 0, 0);
+            if (res != BZ_OK) {
+                return -1;
+            }
+
+            message->level2_buffer_size = dest_len;
+            message->level2_buffer_offset = 0;
+            message->level2_offset += 4 + block_size;
+        } else {
+            /* Fallback to raw if not BZIP2? Actually AR2V is usually BZIP2 blocks.
+               Some older ones might be raw.
+            */
+            return -1;
+        }
+    }
+
+    /* Read record from buffer */
+    nexrad_level2_message_header *h = (nexrad_level2_message_header *)((char *)message->level2_buffer + message->level2_buffer_offset);
+
+    *header = h;
+    uint16_t msg_size = be16toh(h->size) * 2; /* size is in halfwords */
+
+    if (message->level2_buffer_offset + msg_size > message->level2_buffer_size) {
+        return -1; /* Malformed buffer */
+    }
+
+    *data = (void *)((char *)h + sizeof(nexrad_level2_message_header));
+    *size = msg_size - sizeof(nexrad_level2_message_header);
+
+    message->level2_buffer_offset += msg_size;
+
+    return 1;
 }
 
 nexrad_chunk *nexrad_message_open_symbology_block(nexrad_message *message) {
@@ -549,19 +678,26 @@ int nexrad_message_find_station_suffix(nexrad_message *message, char **suffix, s
 }
 
 int nexrad_message_read_station(nexrad_message *message, char *dest, size_t destlen) {
-    char station[5];
+    char station[10];
 
     if (message == NULL) {
         return -1;
     }
 
-    station[0] = message->wmo_header->office[0];
-    memcpy(station + 1, message->wmo_header->station, 3);
-    station[4] = '\0';
+    if (message->level == NEXRAD_LEVEL_3) {
+        station[0] = message->wmo_header->office[0];
+        memcpy(station + 1, message->wmo_header->station, 3);
+        station[4] = '\0';
+    } else if (message->level == NEXRAD_LEVEL_2) {
+        memcpy(station, message->level2_volume_header->icao, 4);
+        station[4] = '\0';
+    } else {
+        return -1;
+    }
 
     return safecpy(
         dest,    station,
-        destlen, sizeof(station) - 1
+        destlen, strlen(station)
     );
 }
 
@@ -570,13 +706,23 @@ int nexrad_message_read_station_location(nexrad_message *message, double *lat, d
         return -1;
     }
 
-    *lat = NEXRAD_PRODUCT_COORD_MAGNITUDE * (int32_t)be32toh(message->description->station_lat);
-    *lon = NEXRAD_PRODUCT_COORD_MAGNITUDE * (int32_t)be32toh(message->description->station_lon);
+    if (message->level == NEXRAD_LEVEL_3) {
+        *lat = NEXRAD_PRODUCT_COORD_MAGNITUDE * (int32_t)be32toh(message->description->station_lat);
+        *lon = NEXRAD_PRODUCT_COORD_MAGNITUDE * (int32_t)be32toh(message->description->station_lon);
 
-    if (alt)
-        *alt = NEXRAD_PRODUCT_ALT_FACTOR * (int16_t)be16toh(message->description->station_altitude);
+        if (alt)
+            *alt = NEXRAD_PRODUCT_ALT_FACTOR * (int16_t)be16toh(message->description->station_altitude);
 
-    return 0;
+        return 0;
+    } else if (message->level == NEXRAD_LEVEL_2) {
+        /* Level 2 location is in the Volume Data block of Message Type 31.
+         * Since we haven't necessarily iterated to it yet, this is tricky.
+         * For now, we'll return -1 unless we want to scan for it.
+         */
+        return -1;
+    }
+
+    return -1;
 }
 
 nexrad_packet *nexrad_message_find_symbology_packet_by_type(nexrad_message *message, enum nexrad_packet_type type) {
