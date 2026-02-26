@@ -25,6 +25,7 @@
 #define _NEXRAD_LEVEL2_H
 
 #include <stdint.h>
+#include <nexrad/geo.h>
 
 #pragma pack(push)
 #pragma pack(1)
@@ -171,5 +172,7 @@ void *nexrad_level2_get_block(nexrad_level2_data_header *header, const char *nam
 
 float nexrad_level2_decode_moment(nexrad_level2_moment_data *moment, int bin);
 int nexrad_level2_get_moment_range(nexrad_level2_moment_data *moment, int bin, float *start_km, float *end_km);
+
+int nexrad_level2_get_bin_cartesian(nexrad_geo_spheroid *spheroid, nexrad_geo_cartesian *radar_pos, double radar_alt, float azimuth, float elevation, float slant_range_km, nexrad_geo_cartesian *target_out, double *altitude_out);
 
 #endif /* _NEXRAD_LEVEL2_H */

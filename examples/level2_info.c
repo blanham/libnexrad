@@ -28,6 +28,7 @@
 
 #include <nexrad/message.h>
 #include <nexrad/level2.h>
+#include <nexrad/geo.h>
 #include "../src/util.h"
 
 int main(int argc, char **argv) {
@@ -58,11 +59,16 @@ int main(int argc, char **argv) {
     printf("Station: %s\n", station);
 
     double lat, lon, alt;
+    nexrad_geo_cartesian radar_pos = {0};
     if (nexrad_message_read_station_location(message, &lat, &lon, &alt) == 0) {
         printf("Location: %.5f, %.5f (Alt: %.1fm)\n", lat, lon, alt);
+        radar_pos.lat = lat;
+        radar_pos.lon = lon;
     } else {
         printf("Location: Unknown\n");
     }
+
+    nexrad_geo_spheroid *spheroid = nexrad_geo_spheroid_create();
 
     int count = 0;
     int ret;
@@ -80,6 +86,17 @@ int main(int argc, char **argv) {
                         
                         nexrad_level2_moment_data *ref = nexrad_level2_get_block(dh, "REF");
                         if (ref) {
+                            float start_km, end_km;
+                            nexrad_level2_get_moment_range(ref, 0, &start_km, &end_km);
+                            float center_km = (start_km + end_km) / 2.0f;
+                            
+                            nexrad_geo_cartesian target;
+                            double target_alt;
+                            if (radar_pos.lat != 0 && spheroid) {
+                                nexrad_level2_get_bin_cartesian(spheroid, &radar_pos, alt, az, el, center_km, &target, &target_alt);
+                                printf("  Bin 0 pos: %.5f, %.5f (Alt %.1fm) Dist: %.2fkm\n", target.lat, target.lon, target_alt, center_km);
+                            }
+                            
                             printf("  Reflectivity first 5 bins (count=%d): ", be16toh(ref->bin_count));
                             for (int i = 0; i < 5 && i < be16toh(ref->bin_count); i++) {
                                 float val = nexrad_level2_decode_moment(ref, i);

@@ -23,9 +23,15 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "util.h"
 
 #include <nexrad/level2.h>
+#include <nexrad/geo.h>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 nexrad_level2_data_header *nexrad_level2_get_data_header(void *data, size_t size) {
     if (data == NULL || size < sizeof(nexrad_level2_data_header)) {
@@ -108,6 +114,37 @@ int nexrad_level2_get_moment_range(nexrad_level2_moment_data *moment, int bin, f
     
     if (start_km) *start_km = (center_m - (bin_size / 2.0f)) / 1000.0f;
     if (end_km) *end_km = (center_m + (bin_size / 2.0f)) / 1000.0f;
+
+    return 0;
+}
+
+int nexrad_level2_get_bin_cartesian(nexrad_geo_spheroid *spheroid, nexrad_geo_cartesian *radar_pos, double radar_alt, float azimuth, float elevation, float slant_range_km, nexrad_geo_cartesian *target_out, double *altitude_out) {
+    if (!spheroid || !radar_pos || !target_out) {
+        return -1;
+    }
+
+    double a = nexrad_geo_spheroid_get_radius(spheroid); // Earth radius, roughly 6378137.0 m
+    // 4/3 Earth radius for standard refraction
+    double R_prime = (4.0 / 3.0) * a;
+
+    double r = slant_range_km * 1000.0; // convert to meters
+    double theta = elevation * (M_PI / 180.0);
+
+    // Height of target above radar level
+    double h = sqrt(r * r + R_prime * R_prime + 2.0 * r * R_prime * sin(theta)) - R_prime;
+
+    if (altitude_out) {
+        *altitude_out = radar_alt + h;
+    }
+
+    // Great circle distance along the surface
+    double s = R_prime * asin((r * cos(theta)) / (R_prime + h));
+
+    nexrad_geo_polar p;
+    p.azimuth = azimuth;
+    p.range = s; // geo.h uses meters for range
+
+    nexrad_geo_find_cartesian_dest(spheroid, radar_pos, target_out, &p);
 
     return 0;
 }
