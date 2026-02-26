@@ -110,7 +110,7 @@ int nexrad_level2_get_moment_range(nexrad_level2_moment_data *moment, int bin, f
     // And "bin_size" is in meters (e.g. 250 or 1000). Wait, some docs say km.
     // Let's divide by 1000 to return km.
 
-    float center_m = range_to_first + (bin * bin_size);
+    float center_m = range_to_first + (bin * bin_size) + (bin_size / 2.0f);
     
     if (start_km) *start_km = (center_m - (bin_size / 2.0f)) / 1000.0f;
     if (end_km) *end_km = (center_m + (bin_size / 2.0f)) / 1000.0f;
