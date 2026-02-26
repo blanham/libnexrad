@@ -18,11 +18,11 @@ This document outlines the planned improvements for extending `libnexrad` to sup
     - Support reflectivity (dBZ), velocity (m/s), and spectrum width.
     - Support Dual-Pol moments (ZDR, PHI, RHO).
 
-## Phase 3: Spatial Mapping & Projection
-- [ ] **Polar to Geographic Projection:**
+## Phase 3: Spatial Mapping & Projection (Completed)
+- [x] **Polar to Geographic Projection:**
     - Use `geodesic.h` to project Level II polar bins to lat/lon.
     - Support elevation-corrected slant range calculations.
-- [ ] **Integration with `geo.h`:**
+- [x] **Integration with `geo.h`:**
     - Ensure Level II data can be used with existing Level III projection logic.
 
 ## Phase 4: Map Data & Visualization
