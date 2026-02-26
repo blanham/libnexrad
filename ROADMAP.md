@@ -9,11 +9,11 @@ This document outlines the planned improvements for extending `libnexrad` to sup
 - [x] Record iteration API
 - [x] Basic station identification for Level II
 
-## Phase 2: Legacy & Moment Decoding
-- [ ] **Legacy Support (Message Type 1):**
+## Phase 2: Legacy & Moment Decoding (Completed)
+- [x] **Legacy Support (Message Type 1):**
     - Implement structures for Message Type 1 radial data.
     - Add logic to detect and iterate through Type 1 records in older files.
-- [ ] **Moment Decoding:**
+- [x] **Moment Decoding:**
     - Implement helpers to convert raw data (8-bit/16-bit) to physical units.
     - Support reflectivity (dBZ), velocity (m/s), and spectrum width.
     - Support Dual-Pol moments (ZDR, PHI, RHO).
