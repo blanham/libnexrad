@@ -65,4 +65,6 @@
 
 int safecpy(char *dest, char *src, size_t destlen, size_t srclen);
 
+int nexrad_station_lookup(const char *icao, double *lat, double *lon, double *alt);
+
 #endif /* _UTIL_H */

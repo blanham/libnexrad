@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <bzlib.h>
+#include <stdio.h>
 #include "util.h"
 
 #include <nexrad/message.h>
@@ -329,6 +330,7 @@ nexrad_message *nexrad_message_open_buf(void *buf, size_t len) {
     if ((message = malloc(sizeof(nexrad_message))) == NULL) {
         goto error_malloc;
     }
+    memset(message, 0, sizeof(nexrad_message));
 
     message->size        = len;
     message->page_size   = 0;
@@ -356,6 +358,7 @@ nexrad_message *nexrad_message_open(const char *path) {
     if ((message = malloc(sizeof(nexrad_message))) == NULL) {
         goto error_malloc;
     }
+    memset(message, 0, sizeof(nexrad_message));
 
     if (stat(path, &st) < 0) {
         goto error_stat;
@@ -365,12 +368,6 @@ nexrad_message *nexrad_message_open(const char *path) {
         errno = EFBIG;
 
         goto error_efbig;
-    }
-
-    if (st.st_size < sizeof(nexrad_message)) {
-        errno = EINVAL;
-
-        goto error_einval;
     }
 
     message->size        = st.st_size;
@@ -398,7 +395,6 @@ error_open:
 
     return NULL;
 
-error_einval:
 error_efbig:
 error_stat:
     free(message);
@@ -430,7 +426,7 @@ void nexrad_message_destroy(nexrad_message *message) {
         free(message->body);
     }
 
-    if (message->level2_buffer) {
+    if (message->level2_buffer && (message->level == NEXRAD_LEVEL_3 || (char *)message->level2_buffer < (char *)message->data || (char *)message->level2_buffer >= (char *)message->data + message->size)) {
         free(message->level2_buffer);
     }
 
@@ -522,23 +518,44 @@ int nexrad_message_next_level2_record(nexrad_message *message,
             message->level2_buffer_offset = 0;
             message->level2_offset += 4 + block_size;
         } else {
-            /* Fallback to raw if not BZIP2? Actually AR2V is usually BZIP2 blocks.
-               Some older ones might be raw.
-            */
-            return -1;
+             message->level2_buffer = (char *)message->data + message->level2_offset;
+             message->level2_buffer_size = message->size - message->level2_offset;
+             message->level2_buffer_offset = 0;
+             message->level2_offset = message->size; /* No more blocks */
         }
     }
 
     /* Read record from buffer */
-    nexrad_level2_message_header *h = (nexrad_level2_message_header *)((char *)message->level2_buffer + message->level2_buffer_offset);
+    while (message->level2_buffer_offset + 16 <= message->level2_buffer_size) {
+        nexrad_level2_message_header *h = (nexrad_level2_message_header *)((char *)message->level2_buffer + message->level2_buffer_offset);
 
-    *header = h;
-    uint16_t msg_size = be16toh(h->size) * 2; /* size is in halfwords */
-
-    if (message->level2_buffer_offset + msg_size > message->level2_buffer_size) {
-        return -1; /* Malformed buffer */
+        if (be16toh(h->size) == 0 && message->level2_buffer_offset + 12 < message->level2_buffer_size) {
+            message->level2_buffer_offset += 12;
+            continue;
+        }
+        break;
     }
 
+    if (message->level2_buffer_offset + sizeof(nexrad_level2_message_header) > message->level2_buffer_size) {
+        /* If we are at the end of a block, try to load next block */
+        message->level2_buffer_offset = message->level2_buffer_size;
+        return nexrad_message_next_level2_record(message, header, data, size);
+    }
+
+    nexrad_level2_message_header *h = (nexrad_level2_message_header *)((char *)message->level2_buffer + message->level2_buffer_offset);
+    uint16_t msg_size = be16toh(h->size) * 2; /* size is in halfwords */
+
+    if (msg_size < sizeof(nexrad_level2_message_header)) {
+        message->level2_buffer_offset += 2;
+        return nexrad_message_next_level2_record(message, header, data, size);
+    }
+
+    if (message->level2_buffer_offset + msg_size > message->level2_buffer_size) {
+        message->level2_buffer_offset = message->level2_buffer_size;
+        return nexrad_message_next_level2_record(message, header, data, size);
+    }
+
+    *header = h;
     *data = (void *)((char *)h + sizeof(nexrad_level2_message_header));
     *size = msg_size - sizeof(nexrad_level2_message_header);
 
@@ -715,11 +732,11 @@ int nexrad_message_read_station_location(nexrad_message *message, double *lat, d
 
         return 0;
     } else if (message->level == NEXRAD_LEVEL_2) {
-        /* Level 2 location is in the Volume Data block of Message Type 31.
-         * Since we haven't necessarily iterated to it yet, this is tricky.
-         * For now, we'll return -1 unless we want to scan for it.
-         */
-        return -1;
+        char station[10];
+        if (nexrad_message_read_station(message, station, sizeof(station)) < 0) {
+            return -1;
+        }
+        return nexrad_station_lookup(station, lat, lon, alt);
     }
 
     return -1;

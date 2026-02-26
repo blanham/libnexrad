@@ -31,6 +31,7 @@
 #include "../src/util.h"
 
 int main(int argc, char **argv) {
+    printf("DEBUG: main start\n");
     nexrad_message *message;
     nexrad_level2_message_header *header;
     void *data;
@@ -55,6 +56,13 @@ int main(int argc, char **argv) {
 
     nexrad_message_read_station(message, station, sizeof(station));
     printf("Station: %s\n", station);
+
+    double lat, lon, alt;
+    if (nexrad_message_read_station_location(message, &lat, &lon, &alt) == 0) {
+        printf("Location: %.5f, %.5f (Alt: %.1fm)\n", lat, lon, alt);
+    } else {
+        printf("Location: Unknown\n");
+    }
 
     int count = 0;
     while (nexrad_message_next_level2_record(message, &header, &data, &size) > 0) {

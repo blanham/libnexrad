@@ -45,3 +45,31 @@ int safecpy(char *dest, char *src, size_t destlen, size_t srclen) {
 
     return 0;
 }
+
+typedef struct _nexrad_station {
+    const char *icao;
+    double lat;
+    double lon;
+    double alt;
+} nexrad_station;
+
+static nexrad_station station_table[] = {
+    { "KATX", 48.19472, -122.49583, 164.0 },
+    { "KTLX", 35.33306,  -97.27778, 370.0 },
+    { "KSGF", 37.23528,  -93.40028, 392.0 },
+    { NULL, 0, 0, 0 }
+};
+
+int nexrad_station_lookup(const char *icao, double *lat, double *lon, double *alt) {
+    int i = 0;
+    while (station_table[i].icao != NULL) {
+        if (strcmp(station_table[i].icao, icao) == 0) {
+            if (lat) *lat = station_table[i].lat;
+            if (lon) *lon = station_table[i].lon;
+            if (alt) *alt = station_table[i].alt;
+            return 0;
+        }
+        i++;
+    }
+    return -1;
+}

@@ -36,8 +36,8 @@
 #include <nexrad/packet.h>
 #include <nexrad/level2.h>
 
-#define NEXRAD_MESSAGE_MAX_BODY_SIZE 8388608
-#define NEXRAD_MESSAGE_MAX_SIZE     10485760
+#define NEXRAD_MESSAGE_MAX_BODY_SIZE 134217728
+#define NEXRAD_MESSAGE_MAX_SIZE     134217728
 
 /*!
  * \file nexrad/message.h
