@@ -134,6 +134,33 @@ typedef struct _nexrad_level2_moment_data {
     uint8_t  data[1];
 } nexrad_level2_moment_data;
 
+/* Message Type 1: Digital Radar Data (Legacy) */
+
+typedef struct _nexrad_level2_message_type1 {
+    uint32_t time;
+    uint16_t date;
+    uint16_t azimuth_number;
+    float    azimuth_angle;
+    uint8_t  radial_status;
+    uint8_t  elevation_number;
+    uint16_t cut_sector_number;
+    float    elevation_angle;
+    uint16_t spot_blanking_status;
+    uint16_t azimuth_indexing_mode;
+    uint16_t sur_pointer;  /* Reflectivity */
+    uint16_t vel_pointer;  /* Velocity */
+    uint16_t sw_pointer;   /* Spectrum Width */
+    uint16_t vel_resolution;
+    uint16_t vcp;
+    uint16_t spare1[4];
+    uint16_t nyquist_velocity;
+    uint16_t atmos_attenuation;
+    uint16_t threshold_parameter;
+    uint16_t spot_blanking_bitmap;
+    uint16_t spare2[32];
+    /* Data follows at pointers */
+} nexrad_level2_message_type1;
+
 #pragma pack(pop)
 
 nexrad_level2_data_header *nexrad_level2_get_data_header(void *data, size_t size);
