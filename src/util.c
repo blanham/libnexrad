@@ -73,3 +73,15 @@ int nexrad_station_lookup(const char *icao, double *lat, double *lon, double *al
     }
     return -1;
 }
+
+float nexrad_bswap_float(float f) {
+    union {
+        uint32_t i;
+        float f;
+    } u;
+    u.f = f;
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    u.i = be32toh(u.i);
+#endif
+    return u.f;
+}

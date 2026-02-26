@@ -60,6 +60,7 @@ struct _nexrad_message {
     nexrad_level2_volume_header * level2_volume_header;
     size_t                        level2_offset;
     void *                        level2_buffer;
+    int                           is_level2_buffer_allocated;
     size_t                        level2_buffer_size;
     size_t                        level2_buffer_offset;
 
@@ -408,6 +409,17 @@ void nexrad_message_destroy(nexrad_message *message) {
         return;
     }
 
+    if (message->body && message->compression != NEXRAD_PRODUCT_COMPRESSION_NONE) {
+        message->compression = NEXRAD_PRODUCT_COMPRESSION_NONE;
+        free(message->body);
+    }
+
+    if (message->level2_buffer && message->is_level2_buffer_allocated) {
+        free(message->level2_buffer);
+        message->level2_buffer = NULL;
+        message->is_level2_buffer_allocated = 0;
+    }
+
     if (message->data && message->mapped_size > 0) {
         munmap(message->data, message->mapped_size);
 
@@ -419,15 +431,6 @@ void nexrad_message_destroy(nexrad_message *message) {
         close(message->fd);
 
         message->fd = 0;
-    }
-
-    if (message->body && message->compression != NEXRAD_PRODUCT_COMPRESSION_NONE) {
-        message->compression = NEXRAD_PRODUCT_COMPRESSION_NONE;
-        free(message->body);
-    }
-
-    if (message->level2_buffer && (message->level == NEXRAD_LEVEL_3 || (char *)message->level2_buffer < (char *)message->data || (char *)message->level2_buffer >= (char *)message->data + message->size)) {
-        free(message->level2_buffer);
     }
 
     message->size           = 0;
@@ -487,37 +490,46 @@ int nexrad_message_next_level2_record(nexrad_message *message,
             return 0; /* EOF */
         }
 
-        /* Check for BZIP2 block */
-        uint32_t block_size;
-        memcpy(&block_size, (char *)message->data + message->level2_offset, 4);
-        block_size = be32toh(block_size);
+        if (strncmp(message->level2_volume_header->tape, "AR2V", 4) == 0) {
+            /* Check for BZIP2 block */
+            uint32_t block_size;
+            memcpy(&block_size, (char *)message->data + message->level2_offset, 4);
+            block_size = be32toh(block_size);
 
-        if (block_size == 0) {
-             return 0; /* EOF */
-        }
-
-        if (message->level2_offset + 4 + block_size > message->size) {
-            return -1; /* Malformed */
-        }
-
-        void *compressed_data = (char *)message->data + message->level2_offset + 4;
-
-        if (memcmp(compressed_data, "BZh", 3) == 0) {
-            if (message->level2_buffer == NULL) {
-                message->level2_buffer = malloc(NEXRAD_MESSAGE_MAX_BODY_SIZE);
-                if (message->level2_buffer == NULL) return -1;
+            if (block_size == 0) {
+                 return 0; /* EOF */
             }
 
-            unsigned int dest_len = NEXRAD_MESSAGE_MAX_BODY_SIZE;
-            int res = BZ2_bzBuffToBuffDecompress(message->level2_buffer, &dest_len, compressed_data, block_size, 0, 0);
-            if (res != BZ_OK) {
-                return -1;
+            if (message->level2_offset + 4 + block_size > message->size) {
+                return -1; /* Malformed */
             }
 
-            message->level2_buffer_size = dest_len;
-            message->level2_buffer_offset = 0;
-            message->level2_offset += 4 + block_size;
+            void *compressed_data = (char *)message->data + message->level2_offset + 4;
+
+            if (memcmp(compressed_data, "BZh", 3) == 0) {
+                if (message->level2_buffer == NULL) {
+                    message->level2_buffer = malloc(NEXRAD_MESSAGE_MAX_BODY_SIZE);
+                    if (message->level2_buffer == NULL) return -1;
+                    message->is_level2_buffer_allocated = 1;
+                }
+
+                unsigned int dest_len = NEXRAD_MESSAGE_MAX_BODY_SIZE;
+                int res = BZ2_bzBuffToBuffDecompress(message->level2_buffer, &dest_len, compressed_data, block_size, 0, 0);
+                if (res != BZ_OK) {
+                    return -1;
+                }
+
+                message->level2_buffer_size = dest_len;
+                message->level2_buffer_offset = 0;
+                message->level2_offset += 4 + block_size;
+            } else {
+                 message->level2_buffer = (char *)message->data + message->level2_offset;
+                 message->level2_buffer_size = message->size - message->level2_offset;
+                 message->level2_buffer_offset = 0;
+                 message->level2_offset = message->size; /* No more blocks */
+            }
         } else {
+             /* Uncompressed ARCHIVE2 format */
              message->level2_buffer = (char *)message->data + message->level2_offset;
              message->level2_buffer_size = message->size - message->level2_offset;
              message->level2_buffer_offset = 0;
@@ -526,6 +538,21 @@ int nexrad_message_next_level2_record(nexrad_message *message,
     }
 
     /* Read record from buffer */
+    if (strncmp(message->level2_volume_header->tape, "ARCHIVE2", 8) == 0 && message->level2_buffer_size == message->size - NEXRAD_LEVEL2_VOLUME_HEADER_SIZE) {
+        if (message->level2_buffer_offset + 2432 > message->level2_buffer_size) {
+            return 0;
+        }
+
+        nexrad_level2_message_header *h = (nexrad_level2_message_header *)((char *)message->level2_buffer + message->level2_buffer_offset + 12);
+        
+        *header = h;
+        *data = (void *)((char *)h + sizeof(nexrad_level2_message_header));
+        *size = be16toh(h->size) * 2 - sizeof(nexrad_level2_message_header);
+
+        message->level2_buffer_offset += 2432;
+        return 1;
+    }
+
     while (message->level2_buffer_offset + 16 <= message->level2_buffer_size) {
         nexrad_level2_message_header *h = (nexrad_level2_message_header *)((char *)message->level2_buffer + message->level2_buffer_offset);
 

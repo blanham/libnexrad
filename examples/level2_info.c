@@ -65,23 +65,51 @@ int main(int argc, char **argv) {
     }
 
     int count = 0;
-    while (nexrad_message_next_level2_record(message, &header, &data, &size) > 0) {
+    int ret;
+    while ((ret = nexrad_message_next_level2_record(message, &header, &data, &size)) > 0) {
         if (header->type == 31) {
             nexrad_level2_data_header *dh = nexrad_level2_get_data_header(data, size);
             if (dh) {
                 nexrad_level2_radial_data *rd = nexrad_level2_get_block(dh, "RAD");
                 if (rd) {
                     if (count % 100 == 0) {
-                        printf("Radial %d: Azimuth %.2f, Elevation %.2f, Bins %d\n",
-                            count, dh->azimuth_angle, dh->elevation_angle, (int)be16toh(rd->bin_count));
+                        float az = nexrad_bswap_float(dh->azimuth_angle);
+                        float el = nexrad_bswap_float(dh->elevation_angle);
+                        printf("Radial %d (Type 31): Azimuth %.2f, Elevation %.2f, Bins %d\n",
+                            count, az, el, (int)be16toh(rd->bin_count));
+                        
+                        nexrad_level2_moment_data *ref = nexrad_level2_get_block(dh, "REF");
+                        if (ref) {
+                            printf("  Reflectivity first 5 bins (count=%d): ", be16toh(ref->bin_count));
+                            for (int i = 0; i < 5 && i < be16toh(ref->bin_count); i++) {
+                                float val = nexrad_level2_decode_moment(ref, i);
+                                if (val == NEXRAD_LEVEL2_NO_DATA) {
+                                    printf(" ND  ");
+                                } else if (val == NEXRAD_LEVEL2_RANGE_FOLDED) {
+                                    printf(" RF  ");
+                                } else {
+                                    printf("%.1f ", val);
+                                }
+                            }
+                            printf("\n");
+                        }
                     }
+                }
+            }
+        } else if (header->type == 1) {
+            nexrad_level2_message_type1 *t1 = (nexrad_level2_message_type1 *)data;
+            if (size >= sizeof(nexrad_level2_message_type1)) {
+                if (count % 100 == 0) {
+                    float true_az = (float)be16toh(t1->azimuth_angle) / 8.0f * (180.0f / 4096.0f);
+                    float true_el = (float)be16toh(t1->elevation_angle) / 8.0f * (180.0f / 4096.0f);
+                    printf("Radial %d (Type 1): Azimuth %.2f, Elevation %.2f\n", count, true_az, true_el);
                 }
             }
         }
         count++;
     }
 
-    printf("Processed %d records\n", count);
+    printf("Processed %d records (last ret = %d)\n", count, ret);
 
     nexrad_message_close(message);
     return 0;

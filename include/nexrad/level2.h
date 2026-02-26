@@ -122,10 +122,11 @@ typedef struct _nexrad_level2_radial_data {
 
 typedef struct _nexrad_level2_moment_data {
     nexrad_level2_data_block block;
-    uint16_t size;
+    uint32_t reserved;
     uint16_t bin_count;
-    float    range_to_first_bin;
-    float    bin_size;
+    uint16_t range_to_first_bin;
+    uint16_t bin_size;
+    uint16_t tover;
     uint16_t snr_threshold;
     uint8_t  control_flags;
     uint8_t  data_size;
@@ -139,14 +140,12 @@ typedef struct _nexrad_level2_moment_data {
 typedef struct _nexrad_level2_message_type1 {
     uint32_t time;
     uint16_t date;
+    uint16_t unambiguous_range;
+    uint16_t azimuth_angle;
     uint16_t azimuth_number;
-    float    azimuth_angle;
-    uint8_t  radial_status;
-    uint8_t  elevation_number;
-    uint16_t cut_sector_number;
-    float    elevation_angle;
-    uint16_t spot_blanking_status;
-    uint16_t azimuth_indexing_mode;
+    uint16_t radial_status;
+    uint16_t elevation_angle;
+    uint16_t elevation_number;
     uint16_t sur_pointer;  /* Reflectivity */
     uint16_t vel_pointer;  /* Velocity */
     uint16_t sw_pointer;   /* Spectrum Width */
@@ -156,6 +155,7 @@ typedef struct _nexrad_level2_message_type1 {
     uint16_t nyquist_velocity;
     uint16_t atmos_attenuation;
     uint16_t threshold_parameter;
+    uint16_t spot_blanking_status;
     uint16_t spot_blanking_bitmap;
     uint16_t spare2[32];
     /* Data follows at pointers */
@@ -165,5 +165,11 @@ typedef struct _nexrad_level2_message_type1 {
 
 nexrad_level2_data_header *nexrad_level2_get_data_header(void *data, size_t size);
 void *nexrad_level2_get_block(nexrad_level2_data_header *header, const char *name);
+
+#define NEXRAD_LEVEL2_NO_DATA -999.0f
+#define NEXRAD_LEVEL2_RANGE_FOLDED -998.0f
+
+float nexrad_level2_decode_moment(nexrad_level2_moment_data *moment, int bin);
+int nexrad_level2_get_moment_range(nexrad_level2_moment_data *moment, int bin, float *start_km, float *end_km);
 
 #endif /* _NEXRAD_LEVEL2_H */
