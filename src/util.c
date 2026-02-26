@@ -54,7 +54,7 @@ typedef struct _nexrad_station {
 } nexrad_station;
 
 static nexrad_station station_table[] = {
-    { "KATX", 48.19472, -122.49583, 164.0 },
+    { "KATX", 48.19472, -122.49570, 195.0 },
     { "KTLX", 35.33306,  -97.27778, 370.0 },
     { "KSGF", 37.23528,  -93.40028, 392.0 },
     { NULL, 0, 0, 0 }

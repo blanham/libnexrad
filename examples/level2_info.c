@@ -81,8 +81,9 @@ int main(int argc, char **argv) {
                     if (count % 100 == 0) {
                         float az = nexrad_bswap_float(dh->azimuth_angle);
                         float el = nexrad_bswap_float(dh->elevation_angle);
-                        printf("Radial %d (Type 31): Azimuth %.2f, Elevation %.2f, Bins %d\n",
-                            count, az, el, (int)be16toh(rd->bin_count));
+                        uint32_t ms = be32toh(dh->collection_time);
+                        printf("Radial %d (Type 31): Time %02d:%02d:%02d.%03d, Azimuth %.2f, Elevation %.2f, Bins %d\n",
+                            count, (ms / 3600000), (ms / 60000) % 60, (ms / 1000) % 60, ms % 1000, az, el, (int)be16toh(rd->bin_count));
                         
                         nexrad_level2_moment_data *ref = nexrad_level2_get_block(dh, "REF");
                         if (ref) {
@@ -94,7 +95,8 @@ int main(int argc, char **argv) {
                             double target_alt;
                             if (radar_pos.lat != 0 && spheroid) {
                                 nexrad_level2_get_bin_cartesian(spheroid, &radar_pos, alt, az, el, center_km, &target, &target_alt);
-                                printf("  Bin 0 pos: %.5f, %.5f (Alt %.1fm) Dist: %.2fkm\n", target.lat, target.lon, target_alt, center_km);
+                                printf("  Bin 0 pos: %.5f, %.5f (Alt %.1fm) Dist: %.3fkm\n", 
+                                    target.lat, target.lon, target_alt, center_km);
                             }
                             
                             printf("  Reflectivity first 5 bins (count=%d): ", be16toh(ref->bin_count));
@@ -113,6 +115,7 @@ int main(int argc, char **argv) {
                     }
                 }
             }
+            count++;
         } else if (header->type == 1) {
             nexrad_level2_message_type1 *t1 = (nexrad_level2_message_type1 *)data;
             if (size >= sizeof(nexrad_level2_message_type1)) {
@@ -122,8 +125,8 @@ int main(int argc, char **argv) {
                     printf("Radial %d (Type 1): Azimuth %.2f, Elevation %.2f\n", count, true_az, true_el);
                 }
             }
+            count++;
         }
-        count++;
     }
 
     printf("Processed %d records (last ret = %d)\n", count, ret);
