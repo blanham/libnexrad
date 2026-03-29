@@ -507,75 +507,25 @@ error_color_table_get_entries:
 
 nexrad_image *nexrad_radial_create_projected_image(nexrad_radial *radial, nexrad_color_table *table, nexrad_geo_projection *proj) {
     nexrad_image *image;
-    nexrad_color *entries;
     nexrad_radial_buffer *buffer;
-    nexrad_geo_projection_point *points;
-    uint16_t x, y, width, height, bins;
 
     if (radial == NULL || table == NULL || proj == NULL) {
         return NULL;
     }
     
     if ((buffer = nexrad_radial_packet_unpack(radial->packet)) == NULL) {
-        goto error_radial_packet_unpack;
+        return NULL;
     }
 
-    if (nexrad_radial_get_info(radial, NULL, &bins, NULL, NULL, NULL, NULL) < 0) {
-        goto error_radial_get_info;
-    }
-
-    if ((entries = nexrad_color_table_get_entries(table, NULL)) == NULL) {
-        goto error_color_table_get_entries;
-    }
-
-    if (nexrad_geo_projection_read_dimensions(proj, &width, &height) < 0) {
-        goto error_geo_projection_read_dimensions;
-    }
-
-    if ((points = nexrad_geo_projection_get_points(proj)) == NULL) {
-        goto error_geo_projection_get_points;
-    }
-
-    if ((image = nexrad_image_create(width, height)) == NULL) {
-        goto error_image_create;
-    }
-
-    for (y=0; y<height; y++) {
-        for (x=0; x<width; x++) {
-            nexrad_color color;
-            int azimuth, range;
-            uint8_t value;
-
-            nexrad_geo_projection_point *point = &points[y*width+x];
-
-            azimuth = (int)be16toh(point->azimuth);
-            range   = (int)be16toh(point->range);
-
-            if (range >= bins) {
-                continue;
-            }
-
-            value = ((uint8_t *)(buffer + 1))
-                [azimuth*buffer->bins+range];
-
-            color = entries[value];
-
-            if (color.a)
-                nexrad_image_draw_pixel(image, color, x, y);
-        }
-    }
+    image = nexrad_geo_project_polar_grid(
+        proj,
+        (uint8_t *)(buffer + 1),
+        buffer->rays * NEXRAD_RADIAL_BUFFER_RAY_WIDTH,
+        buffer->bins,
+        table
+    );
 
     free(buffer);
 
     return image;
-
-error_image_create:
-error_geo_projection_get_points:
-error_geo_projection_read_dimensions:
-error_color_table_get_entries:
-error_radial_get_info:
-    free(buffer);
-
-error_radial_packet_unpack:
-    return NULL;
 }

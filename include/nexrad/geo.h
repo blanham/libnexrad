@@ -32,7 +32,7 @@
 #define NEXRAD_GEO_AZIMUTH_FACTOR     0.1
 
 #define NEXRAD_GEO_PROJECTION_MAGIC   "PROJ"
-#define NEXRAD_GEO_PROJECTION_VERSION 0x01
+#define NEXRAD_GEO_PROJECTION_VERSION 0x02
 
 #define NEXRAD_GEO_MERCATOR_MAX_LAT    85.05112878
 #define NEXRAD_GEO_MERCATOR_TILE_SIZE 256
@@ -40,6 +40,8 @@
 #define NEXRAD_GEO_MERCATOR_MAX_ZOOM   10
 
 #include <stdint.h>
+#include <nexrad/image.h>
+#include <nexrad/color.h>
 
 enum nexrad_geo_projection_type {
     NEXRAD_GEO_PROJECTION_NONE,
@@ -105,6 +107,7 @@ typedef struct _nexrad_geo_projection_header {
      */
      int32_t station_lat;
      int32_t station_lon;
+     uint16_t azimuth_count;
 } nexrad_geo_projection_header;
 
 typedef struct _nexrad_geo_projection_point {
@@ -221,6 +224,7 @@ void nexrad_geo_projection_find_extents(
  * \param rangebins Number of rangebins in radar coverage area
  * \param rangebin_meters Size of each rangebin, in meters, in terms of distance
           from radar site
+ * \param azimuth_count Number of azimuth points in a full 360-degree scan
  * \param scale Number of degrees of latitude/longitude per projection point
  * \return A new radar projection object, or NULL on failure
  *
@@ -234,6 +238,7 @@ nexrad_geo_projection *nexrad_geo_projection_create_equirect(
     nexrad_geo_cartesian *radar,
     uint16_t rangebins,
     uint16_t rangebin_meters,
+    uint16_t azimuth_count,
     double scale
 );
 
@@ -246,6 +251,7 @@ nexrad_geo_projection *nexrad_geo_projection_create_equirect(
  * \param rangebins Number of rangebins in radar coverage area
  * \param rangebin_meters Size of each rangebin, in meters, in terms of distance
           from radar site
+ * \param azimuth_count Number of azimuth points in a full 360-degree scan
  * \param zoom Web Mercator zoom level of resulting projection
  * \return A new radar projection object, or NULL on failure
  *
@@ -259,6 +265,7 @@ nexrad_geo_projection *nexrad_geo_projection_create_mercator(
     nexrad_geo_cartesian *radar,
     uint16_t rangebins,
     uint16_t rangebin_meters,
+    uint16_t azimuth_count,
     int zoom
 );
 
@@ -414,4 +421,23 @@ int nexrad_geo_projection_save(nexrad_geo_projection *proj);
  */
 void nexrad_geo_projection_close(nexrad_geo_projection *proj);
 
-#endif /* _NEXRAD_GEO_POINT_H */
+/*!
+ * \ingroup projection
+ * \brief Rasterize a generic polar grid into a map-projected image
+ * \param proj A cartographic radar projection object
+ * \param grid A polar grid of 8-bit color intensity values
+ * \param rays Number of rays in the polar grid
+ * \param bins Number of bins per ray in the polar grid
+ * \param table A color table
+ * \return A `nexrad_image` object containing rasterized radar data, or NULL
+ *         on failure
+ */
+nexrad_image *nexrad_geo_project_polar_grid(
+    nexrad_geo_projection *proj,
+    uint8_t *grid,
+    uint16_t rays,
+    uint16_t bins,
+    nexrad_color_table *table
+);
+
+#endif /* _NEXRAD_GEO_H */

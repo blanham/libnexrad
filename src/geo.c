@@ -50,6 +50,8 @@ struct _nexrad_geo_projection {
 
     nexrad_geo_projection_header * header;
     nexrad_geo_projection_point  * points;
+
+    uint16_t azimuth_count;
 };
 
 nexrad_geo_spheroid *nexrad_geo_spheroid_create() {
@@ -160,7 +162,7 @@ static nexrad_geo_projection *_projection_open(const char *path, size_t size, in
         mmap_flags |= MAP_SHARED;
     } else {
         open_flags |= O_RDONLY;
-        mmap_prot  |= PROT_READ;
+        mmap_prot  |= PROT_READ | PROT_WRITE;
         mmap_flags |= MAP_PRIVATE;
     }
 
@@ -211,7 +213,7 @@ static int _equirect_find_y(double lat, int height) {
     return (int)round((double)height - ((double)height * ((lat + 90.0) / 180.0)));
 }
 
-nexrad_geo_projection *nexrad_geo_projection_create_equirect(const char *path, nexrad_geo_spheroid *spheroid, nexrad_geo_cartesian *radar, uint16_t rangebins, uint16_t rangebin_meters, double scale) {
+nexrad_geo_projection *nexrad_geo_projection_create_equirect(const char *path, nexrad_geo_spheroid *spheroid, nexrad_geo_cartesian *radar, uint16_t rangebins, uint16_t rangebin_meters, uint16_t azimuth_count, double scale) {
     nexrad_geo_projection *proj;
 
     nexrad_geo_cartesian extents[4];
@@ -263,6 +265,8 @@ nexrad_geo_projection *nexrad_geo_projection_create_equirect(const char *path, n
     proj->header->height          = htobe16(height);
     proj->header->rangebins       = htobe16(rangebins);
     proj->header->rangebin_meters = htobe16(rangebin_meters);
+    proj->header->azimuth_count   = htobe16(azimuth_count);
+    proj->azimuth_count           = azimuth_count;
     proj->header->world_width     = htobe32(world_width);
     proj->header->world_height    = htobe32(world_height);
     proj->header->world_offset_x  = htobe32(world_offset_x);
@@ -293,11 +297,11 @@ nexrad_geo_projection *nexrad_geo_projection_create_equirect(const char *path, n
 
             nexrad_geo_find_polar_dest(spheroid, radar, &point, &polar);
 
-            azimuth = (int)round(polar.azimuth * 10);
+            azimuth = (int)round(polar.azimuth * (azimuth_count / 360.0));
             range   = (int)round(polar.range / rangebin_meters);
 
-            while (azimuth >= 3600) azimuth -= 3600;
-            while (azimuth <     0) azimuth += 3600;
+            while (azimuth >= azimuth_count) azimuth -= azimuth_count;
+            while (azimuth < 0) azimuth += azimuth_count;
 
             output->azimuth = htobe16((uint16_t)azimuth);
             output->range   = htobe16((uint16_t)range);
@@ -343,7 +347,7 @@ static int _mercator_find_y(double lat, int height) {
     return cy - (int)round(height * (yrad / (2 * M_PI)));
 }
 
-nexrad_geo_projection *nexrad_geo_projection_create_mercator(const char *path, nexrad_geo_spheroid *spheroid, nexrad_geo_cartesian *radar, uint16_t rangebins, uint16_t rangebin_meters, int zoom) {
+nexrad_geo_projection *nexrad_geo_projection_create_mercator(const char *path, nexrad_geo_spheroid *spheroid, nexrad_geo_cartesian *radar, uint16_t rangebins, uint16_t rangebin_meters, uint16_t azimuth_count, int zoom) {
     nexrad_geo_projection *proj;
 
     nexrad_geo_cartesian extents[4];
@@ -398,6 +402,8 @@ nexrad_geo_projection *nexrad_geo_projection_create_mercator(const char *path, n
     proj->header->height          = htobe16(height);
     proj->header->rangebins       = htobe16(rangebins);
     proj->header->rangebin_meters = htobe16(rangebin_meters);
+    proj->header->azimuth_count   = htobe16(azimuth_count);
+    proj->azimuth_count           = azimuth_count;
     proj->header->world_width     = htobe32(world_size);
     proj->header->world_height    = htobe32(world_size);
     proj->header->world_offset_x  = htobe32(world_offset_x);
@@ -431,11 +437,11 @@ nexrad_geo_projection *nexrad_geo_projection_create_mercator(const char *path, n
 
             nexrad_geo_find_polar_dest(spheroid, radar, &point, &polar);
 
-            azimuth = (int)round(polar.azimuth * 10);
+            azimuth = (int)round(polar.azimuth * (azimuth_count / 360.0));
             range   = (int)round(polar.range / rangebin_meters);
 
-            while (azimuth >= 3600) azimuth -= 3600;
-            while (azimuth <     0) azimuth += 3600;
+            while (azimuth >= azimuth_count) azimuth -= azimuth_count;
+            while (azimuth < 0) azimuth += azimuth_count;
 
             output->azimuth = htobe16((uint16_t)azimuth);
             output->range   = htobe16((uint16_t)range);
@@ -456,7 +462,8 @@ static int _is_valid_projection_header(nexrad_geo_projection_header *header) {
     if (strncmp(header->magic, NEXRAD_GEO_PROJECTION_MAGIC, 4) != 0)
         return 0;
 
-    if (be16toh(header->version) != NEXRAD_GEO_PROJECTION_VERSION)
+    uint16_t version = be16toh(header->version);
+    if (version != 0x01 && version != 0x02)
         return 0;
 
     switch (be16toh(header->type)) {
@@ -491,6 +498,13 @@ nexrad_geo_projection *nexrad_geo_projection_open(const char *path) {
 
     if (!_is_valid_projection_header(proj->header)) {
         goto error_invalid_projection_header;
+    }
+
+    if (be16toh(proj->header->version) == 0x01) {
+        proj->points = (nexrad_geo_projection_point *)((char *)proj->header + 104);
+        proj->azimuth_count = 3600;
+    } else {
+        proj->azimuth_count = be16toh(proj->header->azimuth_count);
     }
 
     return proj;
@@ -649,4 +663,54 @@ void nexrad_geo_projection_close(nexrad_geo_projection *proj) {
     memset(proj, '\0', sizeof(*proj));
 
     free(proj);
+}
+
+nexrad_image *nexrad_geo_project_polar_grid(nexrad_geo_projection *proj, uint8_t *grid, uint16_t rays, uint16_t bins, nexrad_color_table *table) {
+    nexrad_image *image;
+    nexrad_color *entries;
+    nexrad_geo_projection_point *points;
+    uint16_t width, height, x, y;
+
+    if (proj == NULL || grid == NULL || table == NULL) {
+        return NULL;
+    }
+
+    if (nexrad_geo_projection_read_dimensions(proj, &width, &height) < 0) {
+        return NULL;
+    }
+
+    if ((entries = nexrad_color_table_get_entries(table, NULL)) == NULL) {
+        return NULL;
+    }
+
+    if ((points = nexrad_geo_projection_get_points(proj)) == NULL) {
+        return NULL;
+    }
+
+    if ((image = nexrad_image_create(width, height)) == NULL) {
+        return NULL;
+    }
+
+    for (y=0; y<height; y++) {
+        for (x=0; x<width; x++) {
+            nexrad_color color;
+            int azimuth, range;
+            uint8_t value;
+
+            nexrad_geo_projection_point *point = &points[y*width+x];
+
+            azimuth = (int)be16toh(point->azimuth);
+            range   = (int)be16toh(point->range);
+
+            if (azimuth < rays && range < bins) {
+                value = grid[azimuth*bins+range];
+                color = entries[value];
+
+                if (color.a)
+                    nexrad_image_draw_pixel(image, color, x, y);
+            }
+        }
+    }
+
+    return image;
 }
