@@ -25,14 +25,20 @@ This document outlines the planned improvements for extending `libnexrad` to sup
 - [x] **Integration with `geo.h`:**
     - Ensure Level II data can be used with existing Level III projection logic.
 
-## Phase 4: Map Data & Visualization
+## Phase 4: Visualization & Rendering (Completed)
+- [x] **Core Rasterizer (DRY):**
+    - Refactor Level III rendering to use a generic geographic rasterizer.
+- [x] **Level II Rasterization:**
+    - Implement a high-level API to generate projected images from Level II sweeps.
+- [x] **Enhanced Examples:**
+    - Create a Level II visualizer that renders moments with map overlays.
+
+## Phase 5: Map Data
 - [ ] **Vector Map Overlays:**
     - Integrate US State and County boundaries.
     - Integrate major highway datasets.
     - *Research:* Evaluate GeoJSON vs. SVG vs. custom binary format for efficient CLI/rendering performance.
-- [ ] **Enhanced Examples:**
-    - Create a Level II visualizer that renders moments with map overlays.
 
-## Phase 5: Data Acquisition
+## Phase 6: Data Acquisition
 - [ ] **AWS Integration:**
     - Provide tools/scripts to fetch historical NEXRAD data from AWS S3 using `nexradaws`.
