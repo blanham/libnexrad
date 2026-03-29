@@ -816,3 +816,19 @@ error_symbology_block_open:
 error_get_symbology_block:
     return NULL;
 }
+
+void nexrad_message_reset_level2(nexrad_message *message) {
+    if (message == NULL || message->level != NEXRAD_LEVEL_2) {
+        return;
+    }
+
+    if (message->level2_buffer && message->is_level2_buffer_allocated) {
+        free(message->level2_buffer);
+        message->is_level2_buffer_allocated = 0;
+    }
+
+    message->level2_buffer = NULL;
+    message->level2_buffer_size = 0;
+    message->level2_buffer_offset = 0;
+    message->level2_offset = NEXRAD_LEVEL2_VOLUME_HEADER_SIZE;
+}

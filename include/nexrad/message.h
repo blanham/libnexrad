@@ -123,6 +123,8 @@ int nexrad_message_next_level2_record(nexrad_message *message,
     size_t *size
 );
 
+void nexrad_message_reset_level2(nexrad_message *message);
+
 /*!
  * \ingroup message
  * \brief Obtain the time at which radar data was scanned

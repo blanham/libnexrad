@@ -26,6 +26,7 @@
 #include <math.h>
 #include "util.h"
 
+#include <nexrad/message.h>
 #include <nexrad/level2.h>
 #include <nexrad/geo.h>
 
@@ -147,4 +148,94 @@ int nexrad_level2_get_bin_cartesian(nexrad_geo_spheroid *spheroid, nexrad_geo_ca
     nexrad_geo_find_cartesian_dest(spheroid, radar_pos, target_out, &p);
 
     return 0;
+}
+
+nexrad_image *nexrad_level2_create_projected_image(
+    nexrad_message *message,
+    const char *moment_name,
+    int sweep_num,
+    nexrad_color_table *table,
+    nexrad_geo_projection *proj,
+    float scale,
+    float offset
+) {
+    uint16_t rays = 0;
+    uint16_t bins = 0;
+    uint16_t rb_meters = 0;
+
+    if (nexrad_geo_projection_read_azimuth_count(proj, &rays) != 0) return NULL;
+    if (nexrad_geo_projection_read_range(proj, &bins, &rb_meters) != 0) return NULL;
+
+    uint8_t *grid = calloc(rays * bins, sizeof(uint8_t));
+    if (!grid) return NULL;
+
+    nexrad_level2_message_header *mh = NULL;
+    void *data = NULL;
+    size_t size = 0;
+
+    while (nexrad_message_next_level2_record(message, &mh, &data, &size) == 1) {
+        if (mh->type == 31) {
+            nexrad_level2_data_header *dh = nexrad_level2_get_data_header(data, size);
+            if (!dh) continue;
+            if (dh->elevation_number != sweep_num) continue;
+
+            nexrad_level2_moment_data *moment = nexrad_level2_get_block(dh, moment_name);
+            if (!moment) continue;
+
+            float az_angle = nexrad_bswap_float(dh->azimuth_angle);
+            int azimuth_idx = (int)round(az_angle * (rays / 360.0)) % rays;
+
+            uint16_t moment_bins = be16toh(moment->bin_count);
+            for (int b = 0; b < moment_bins && b < bins; b++) {
+                float val = nexrad_level2_decode_moment(moment, b);
+                if (val == NEXRAD_LEVEL2_NO_DATA || val == NEXRAD_LEVEL2_RANGE_FOLDED) continue;
+
+                int color_idx = (int)((val * scale) + offset);
+                if (color_idx < 0) color_idx = 0;
+                if (color_idx > 255) color_idx = 255;
+                
+                grid[azimuth_idx * bins + b] = (uint8_t)color_idx;
+            }
+        } else if (mh->type == 1) {
+            nexrad_level2_message_type1 *t1 = (nexrad_level2_message_type1 *)data;
+            if (be16toh(t1->elevation_number) != sweep_num) continue;
+
+            float az_angle = (float)be16toh(t1->azimuth_angle) * (360.0f / 65536.0f);
+            int azimuth_idx = (int)round(az_angle * (rays / 360.0)) % rays;
+
+            uint16_t pointer = 0;
+            if (strncmp(moment_name, "REF", 3) == 0) pointer = be16toh(t1->sur_pointer);
+            else if (strncmp(moment_name, "VEL", 3) == 0) pointer = be16toh(t1->vel_pointer);
+            else if (strncmp(moment_name, "SW ", 3) == 0) pointer = be16toh(t1->sw_pointer);
+
+            if (pointer == 0) continue;
+
+            uint8_t *moment_data = (uint8_t *)data + pointer;
+            
+            for (int b = 0; b < bins; b++) {
+                uint8_t raw_val = moment_data[b];
+                if (raw_val <= 1) continue;
+
+                float val = 0;
+                if (strncmp(moment_name, "REF", 3) == 0) {
+                    val = ((float)raw_val - 65.0f) / 2.0f;
+                } else if (strncmp(moment_name, "VEL", 3) == 0) {
+                    float res = (be16toh(t1->vel_resolution) == 2) ? 0.5f : 1.0f;
+                    val = ((float)raw_val - 129.0f) * res;
+                } else if (strncmp(moment_name, "SW ", 3) == 0) {
+                    val = ((float)raw_val - 129.0f) / 2.0f;
+                }
+
+                int color_idx = (int)((val * scale) + offset);
+                if (color_idx < 0) color_idx = 0;
+                if (color_idx > 255) color_idx = 255;
+                grid[azimuth_idx * bins + b] = (uint8_t)color_idx;
+            }
+        }
+    }
+
+    nexrad_image *image = nexrad_geo_project_polar_grid(proj, grid, rays, bins, table);
+
+    free(grid);
+    return image;
 }

@@ -29,6 +29,7 @@
 #include <nexrad/message.h>
 #include <nexrad/level2.h>
 #include <nexrad/geo.h>
+#include <nexrad/color.h>
 #include "../src/util.h"
 
 int main(int argc, char **argv) {
@@ -131,6 +132,36 @@ int main(int argc, char **argv) {
 
     printf("Processed %d records (last ret = %d)\n", count, ret);
 
+    /* Test Rasterization */
+    printf("Starting rasterization test...\n");
+    nexrad_message_reset_level2(message);
+    
+    nexrad_color_table *table = nexrad_color_table_load("colors/reflectivity.clut");
+    if (!table) {
+        fprintf(stderr, "Failed to load color table\n");
+    } else {
+        uint16_t rays = 720;
+        uint16_t bins = 1840;
+        uint16_t rb_meters = 250;
+        
+        nexrad_geo_projection *proj = nexrad_geo_projection_create_equirect("test.proj", spheroid, &radar_pos, bins, rb_meters, rays, 0.01);
+        if (proj) {
+            nexrad_image *image = nexrad_level2_create_projected_image(message, "REF", 1, table, proj, 2.0, 66.0);
+            if (image) {
+                nexrad_image_save_png(image, "output.png");
+                printf("Saved rasterized image to output.png\n");
+                nexrad_image_destroy(image);
+            } else {
+                fprintf(stderr, "Failed to create projected image\n");
+            }
+            nexrad_geo_projection_close(proj);
+        } else {
+            fprintf(stderr, "Failed to create projection\n");
+        }
+        nexrad_color_table_destroy(table);
+    }
+
     nexrad_message_close(message);
+    nexrad_geo_spheroid_destroy(spheroid);
     return 0;
 }
