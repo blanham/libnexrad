@@ -644,6 +644,18 @@ int nexrad_geo_projection_latlon_to_pixel(nexrad_geo_projection *proj, double la
     return 0;
 }
 
+int nexrad_geo_projection_project_points(nexrad_geo_projection *proj, nexrad_geo_cartesian *geo_points, nexrad_geo_screen_point *screen_points, size_t count) {
+    if (!proj || !geo_points || !screen_points) return -1;
+    for (size_t i = 0; i < count; i++) {
+        int16_t x, y;
+        int res = nexrad_geo_projection_latlon_to_pixel(proj, geo_points[i].lat, geo_points[i].lon, &x, &y);
+        screen_points[i].x = x;
+        screen_points[i].y = y;
+        screen_points[i].visible = (res == 0);
+    }
+    return 0;
+}
+
 int nexrad_geo_projection_find_cartesian_point(nexrad_geo_projection *proj, uint16_t x, uint16_t y, nexrad_geo_cartesian *cartesian) {
     uint16_t type;
 

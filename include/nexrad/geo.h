@@ -425,6 +425,22 @@ int nexrad_geo_projection_latlon_to_pixel(
 
 /*!
  * \ingroup projection
+ * \brief Map a batch of geographic Lat/Lon coordinates to pixel locations in the projection
+ * \param proj A geographic projection object
+ * \param geo_points An array of geographic Cartesian points (lat/lon)
+ * \param screen_points An array of screen points to write results to
+ * \param count Number of points in the arrays
+ * \return 0 on success, -1 on failure
+ */
+int nexrad_geo_projection_project_points(
+    nexrad_geo_projection *proj,
+    nexrad_geo_cartesian *geo_points,
+    nexrad_geo_screen_point *screen_points,
+    size_t count
+);
+
+/*!
+ * \ingroup projection
  * \brief Obtain pointer to projection point values in projection object
  * \param proj A geographic projection object
  * \return A pointer to projection point values in projection object
