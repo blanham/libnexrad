@@ -60,6 +60,11 @@ typedef struct _nexrad_geo_cartesian {
     double lon;
 } nexrad_geo_cartesian;
 
+typedef struct _nexrad_geo_screen_point {
+    int16_t x, y;
+    int8_t  visible;
+} nexrad_geo_screen_point;
+
 /*!
  * \file nexrad/geo.h
  * \brief Geodesic calculations and geographic projection support
@@ -321,6 +326,18 @@ int nexrad_geo_projection_read_range(
 
 /*!
  * \ingroup projection
+ * \brief Determine radar azimuth count for projection object
+ * \param proj A geographic projection object
+ * \param azimuth_count A pointer to a uint16_t to write number of azimuths
+ * \return 0 on success, -1 on failure
+ */
+int nexrad_geo_projection_read_azimuth_count(
+    nexrad_geo_projection *proj,
+    uint16_t *azimuth_count
+);
+
+/*!
+ * \ingroup projection
  * \brief Determine radar station location for projection object
  * \param proj A geographic projection object
  * \param radar A pointer to a Cartesian point to write station location to
@@ -388,6 +405,22 @@ int nexrad_geo_projection_find_polar_point(nexrad_geo_projection *proj,
     uint16_t x,
     uint16_t y,
     nexrad_geo_polar *polar
+);
+
+/*!
+ * \ingroup projection
+ * \brief Map a geographic Lat/Lon coordinate to a pixel location in the projection
+ * \param proj A geographic projection object
+ * \param lat Latitude of geographic coordinate
+ * \param lon Longitude of geographic coordinate
+ * \param x A pointer to a int16_t to write projection X coordinate to
+ * \param y A pointer to a int16_t to write projection Y coordinate to
+ * \return 0 if coordinate is visible within projection, -1 if it is outside
+ */
+int nexrad_geo_projection_latlon_to_pixel(
+    nexrad_geo_projection *proj,
+    double lat, double lon,
+    int16_t *x, int16_t *y
 );
 
 /*!

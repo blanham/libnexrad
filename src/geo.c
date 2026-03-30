@@ -345,9 +345,24 @@ static int _mercator_find_y(double lat, int height) {
     double yrad = sign * log((1.0 + sinl) / (1.0 - sinl)) / 2.0;
 
     return cy - (int)round(height * (yrad / (2 * M_PI)));
-}
+    }
 
-nexrad_geo_projection *nexrad_geo_projection_create_mercator(const char *path, nexrad_geo_spheroid *spheroid, nexrad_geo_cartesian *radar, uint16_t rangebins, uint16_t rangebin_meters, uint16_t azimuth_count, int zoom) {
+    static void _equirect_find_xy(double lat, double lon, uint32_t world_width, uint32_t world_height, int *x, int *y) {
+    *x = (int)round((world_width * (lon + 180.0)) / 360.0);
+    *y = (int)round(world_height - (world_height * (lat + 90.0) / 180.0));
+    }
+
+    static void _mercator_find_xy(double lat, double lon, uint32_t world_size, int *x, int *y) {
+    static const double rad = M_PI / 180.0;
+    int cy = world_size / 2;
+    *x = (int)round((double)world_size * ((lon + 180.0) / 360.0));
+    double sinl = sin(lat * rad);
+    double yrad = log((1.0 + sinl) / (1.0 - sinl)) / 2.0;
+    *y = cy - (int)round(world_size * (yrad / (2.0 * M_PI)));
+    }
+
+    nexrad_geo_projection *nexrad_geo_projection_create_mercator(
+const char *path, nexrad_geo_spheroid *spheroid, nexrad_geo_cartesian *radar, uint16_t rangebins, uint16_t rangebin_meters, uint16_t azimuth_count, int zoom) {
     nexrad_geo_projection *proj;
 
     nexrad_geo_cartesian extents[4];
@@ -553,6 +568,17 @@ int nexrad_geo_projection_read_range(nexrad_geo_projection *proj, uint16_t *rang
     return 0;
 }
 
+int nexrad_geo_projection_read_azimuth_count(nexrad_geo_projection *proj, uint16_t *azimuth_count) {
+    if (proj == NULL) {
+        return -1;
+    }
+
+    if (azimuth_count)
+        *azimuth_count = be16toh(proj->header->azimuth_count);
+
+    return 0;
+}
+
 int nexrad_geo_projection_read_station_location(nexrad_geo_projection *proj, nexrad_geo_cartesian *radar) {
     if (proj == NULL) {
         return -1;
@@ -597,6 +623,24 @@ int nexrad_geo_projection_find_polar_point(nexrad_geo_projection *proj, uint16_t
         polar->range   = be16toh(proj->header->rangebin_meters) * be16toh(point->range);
     }
 
+    return 0;
+}
+
+int nexrad_geo_projection_latlon_to_pixel(nexrad_geo_projection *proj, double lat, double lon, int16_t *x, int16_t *y) {
+    if (!proj) return -1;
+    uint16_t type = be16toh(proj->header->type);
+    uint32_t world_w = be32toh(proj->header->world_width);
+    uint32_t world_h = be32toh(proj->header->world_height);
+    int wx, wy;
+
+    if (type == NEXRAD_GEO_PROJECTION_EQUIRECT) _equirect_find_xy(lat, lon, world_w, world_h, &wx, &wy);
+    else if (type == NEXRAD_GEO_PROJECTION_MERCATOR) _mercator_find_xy(lat, lon, world_w, &wx, &wy);
+    else return -1;
+
+    *x = (int16_t)(wx - be32toh(proj->header->world_offset_x));
+    *y = (int16_t)(wy - be32toh(proj->header->world_offset_y));
+
+    if (*x < 0 || *x >= be16toh(proj->header->width) || *y < 0 || *y >= be16toh(proj->header->height)) return -1;
     return 0;
 }
 
