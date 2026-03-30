@@ -656,6 +656,24 @@ int nexrad_geo_projection_project_points(nexrad_geo_projection *proj, nexrad_geo
     return 0;
 }
 
+int nexrad_geo_projection_project_lines(nexrad_geo_projection *proj, nexrad_geo_cartesian *geo_points, size_t count, nexrad_geo_line_cb callback, void *user_data) {
+    if (!proj || !geo_points || !callback || count < 2) return -1;
+
+    int16_t px, py;
+    int p_vis = (nexrad_geo_projection_latlon_to_pixel(proj, geo_points[0].lat, geo_points[0].lon, &px, &py) == 0);
+
+    for (size_t i = 1; i < count; i++) {
+        int16_t cx, cy;
+        int c_vis = (nexrad_geo_projection_latlon_to_pixel(proj, geo_points[i].lat, geo_points[i].lon, &cx, &cy) == 0);
+
+        if (p_vis || c_vis) {
+            callback(px, py, cx, cy, user_data);
+        }
+        px = cx; py = cy; p_vis = c_vis;
+    }
+    return 0;
+}
+
 int nexrad_geo_projection_find_cartesian_point(nexrad_geo_projection *proj, uint16_t x, uint16_t y, nexrad_geo_cartesian *cartesian) {
     uint16_t type;
 

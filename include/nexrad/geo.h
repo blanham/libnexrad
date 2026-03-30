@@ -439,6 +439,26 @@ int nexrad_geo_projection_project_points(
     size_t count
 );
 
+typedef void (*nexrad_geo_line_cb)(int16_t x1, int16_t y1, int16_t x2, int16_t y2, void *user_data);
+
+/*!
+ * \ingroup projection
+ * \brief Map a series of geographic Lat/Lon coordinates to line segments in the projection
+ * \param proj A geographic projection object
+ * \param geo_points An array of geographic Cartesian points (lat/lon) representing a path
+ * \param count Number of points in the array
+ * \param callback A callback function to receive projected line segments
+ * \param user_data User data to pass to the callback
+ * \return 0 on success, -1 on failure
+ */
+int nexrad_geo_projection_project_lines(
+    nexrad_geo_projection *proj,
+    nexrad_geo_cartesian *geo_points,
+    size_t count,
+    nexrad_geo_line_cb callback,
+    void *user_data
+);
+
 /*!
  * \ingroup projection
  * \brief Obtain pointer to projection point values in projection object
