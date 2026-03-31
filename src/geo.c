@@ -679,7 +679,7 @@ int nexrad_geo_projection_find_cartesian_point(nexrad_geo_projection *proj, uint
 
     double (*find_lat)(int, int), (*find_lon)(int, int);
 
-    if (proj == NULL || cartesian == NULL || x < be16toh(proj->header->width) || y > be16toh(proj->header->height)) {
+    if (proj == NULL || cartesian == NULL || x >= be16toh(proj->header->width) || y >= be16toh(proj->header->height)) {
         return -1;
     }
 
