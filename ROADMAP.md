@@ -33,11 +33,12 @@ This document outlines the planned improvements for extending `libnexrad` to sup
 - [x] **Enhanced Examples:**
     - Create a Level II visualizer that renders moments with map overlays.
 
-## Phase 5: Map Data
-- [ ] **Vector Map Overlays:**
-    - Integrate US State and County boundaries.
-    - Integrate major highway datasets.
-    - *Research:* Evaluate GeoJSON vs. SVG vs. custom binary format for efficient CLI/rendering performance.
+## Phase 5: Map Data (Completed)
+- [x] **Vector Map Overlays (Hooks):**
+    - Implement inverse projection hooks (`latlon_to_pixel`).
+    - Support batch point projection for high-performance mapping.
+    - Implement line segment iterator with automatic off-screen culling.
+    - *Research:* Evaluated integration for C/SDL app and decided on providing projection hooks for maximum flexibility.
 
 ## Phase 6: Data Acquisition
 - [ ] **AWS Integration:**
