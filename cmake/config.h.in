@@ -1,0 +1,18 @@
+#ifndef _NEXRAD_CONFIG_H
+#define _NEXRAD_CONFIG_H
+
+#cmakedefine HAVE_ENDIAN_H
+#cmakedefine HAVE_ARCH_BYTE_ORDER_H
+
+#ifdef HAVE_ENDIAN_H
+#include <endian.h>
+#endif
+
+#ifdef HAVE_ARCH_BYTE_ORDER_H
+#include <architecture/byte_order.h>
+#ifdef __LITTLE_ENDIAN__
+#define __DO_SWAP_BYTES
+#endif
+#endif
+
+#endif
