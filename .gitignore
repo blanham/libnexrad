@@ -4,3 +4,9 @@
 *.so
 *.so.*
 *.png
+
+/build/
+/_build/
+/cmake-build-*/
+/dist/
+compile_commands.json
