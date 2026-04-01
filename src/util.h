@@ -26,7 +26,7 @@
 
 #include <stdint.h>
 #include <sys/types.h>
-#include "config.h"
+#include <nexrad/config.h>
 
 #define bswap16(v) (((v & 0xff00) >> 8) | (v & 0x00ff) << 8)
 
