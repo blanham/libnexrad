@@ -40,6 +40,9 @@ This document outlines the planned improvements for extending `libnexrad` to sup
     - Implement line segment iterator with automatic off-screen culling.
     - *Research:* Evaluated integration for C/SDL app and decided on providing projection hooks for maximum flexibility.
 
-## Phase 6: Data Acquisition
-- [ ] **AWS Integration:**
-    - Provide tools/scripts to fetch historical NEXRAD data from AWS S3 using `nexradaws`.
+## Phase 6: Data Acquisition (Completed)
+- [x] **AWS Integration (URL Builder):**
+    - Implement stateless utility functions to construct AWS S3 URLs for Level II and Level III data.
+- [x] **Station Database:**
+    - Embed a comprehensive database of 160 NEXRAD station locations and altitudes into the library.
+    - Refactor library internals to use the global station database.
