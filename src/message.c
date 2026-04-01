@@ -34,6 +34,7 @@
 #include "util.h"
 
 #include <nexrad/message.h>
+#include <nexrad/station.h>
 
 #define NEXRAD_MESSAGE_UNKNOWN_FOOTER "\x0d\x0d\x0a\x03"
 
@@ -763,7 +764,14 @@ int nexrad_message_read_station_location(nexrad_message *message, double *lat, d
         if (nexrad_message_read_station(message, station, sizeof(station)) < 0) {
             return -1;
         }
-        return nexrad_station_lookup(station, lat, lon, alt);
+        const nexrad_station_info *info = nexrad_station_lookup(station);
+        if (info == NULL) {
+            return -1;
+        }
+        if (lat) *lat = info->latitude;
+        if (lon) *lon = info->longitude;
+        if (alt) *alt = info->altitude;
+        return 0;
     }
 
     return -1;

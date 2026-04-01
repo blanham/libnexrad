@@ -66,8 +66,6 @@
 
 int safecpy(char *dest, char *src, size_t destlen, size_t srclen);
 
-int nexrad_station_lookup(const char *icao, double *lat, double *lon, double *alt);
-
 float nexrad_bswap_float(float f);
 
 #endif /* _UTIL_H */
