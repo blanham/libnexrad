@@ -10,3 +10,6 @@
 /cmake-build-*/
 /dist/
 compile_commands.json
+*.proj
+.vscode/
+.specstory/
