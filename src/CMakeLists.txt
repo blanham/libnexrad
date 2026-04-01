@@ -24,3 +24,16 @@ target_include_directories(nexrad_static PUBLIC
 
 target_link_libraries(nexrad PRIVATE BZip2::BZip2 ZLIB::ZLIB ${MATH_LIBRARY})
 target_link_libraries(nexrad_static PRIVATE BZip2::BZip2 ZLIB::ZLIB ${MATH_LIBRARY})
+
+include(GNUInstallDirs)
+
+install(TARGETS nexrad nexrad_static
+    EXPORT nexradTargets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(DIRECTORY ../include/nexrad DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/../include/nexrad/config.h 
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/nexrad)

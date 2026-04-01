@@ -25,3 +25,10 @@ if(NEXRAD_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
 add_subdirectory(colors)
+
+include(GNUInstallDirs)
+install(EXPORT nexradTargets
+    FILE nexradConfig.cmake
+    NAMESPACE nexrad::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/nexrad
+)
