@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2026 Bryce Lanham. Distributed under the
+ * Copyright (c) 2013-2026 Bryce Lanham. Distributed under the
  * terms of the MIT license.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <nexrad/geo.h>
+#include <nexrad/render/point.h>
 
 /**
  * @file nexrad/feature.h
@@ -76,9 +77,10 @@ typedef struct _nexrad_feature_list {
  * @brief A feature projected into screen coordinates.
  */
 typedef struct _nexrad_projected_feature {
-    nexrad_feature *feature;         /**< Reference to original feature. */
-    nexrad_geo_screen_point *points; /**< Array of screen coordinates. */
-    size_t count;                    /**< Number of points. */
+    nexrad_feature *feature;      /**< Reference to original feature. */
+    nexrad_render_point *points;  /**< Array of screen coordinates. */
+    size_t count;                 /**< Number of points. */
+    nexrad_point_type type;       /**< Point precision type. */
 } nexrad_projected_feature;
 
 /**
