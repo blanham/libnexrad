@@ -23,9 +23,12 @@
 
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 #include "pnglite.h"
 
 #include <nexrad/image.h>
+#include <nexrad/feature.h>
+#include <nexrad/geo.h>
 
 #define NEXRAD_IMAGE_PIXEL_BYTES  4
 #define NEXRAD_IMAGE_COLOR_DEPTH  8
@@ -136,11 +139,82 @@ void nexrad_image_draw_pixel(nexrad_image *image, nexrad_color color, uint16_t x
         return;
     }
 
-    if (x < 0 || x > image->width || y < 0 || y > image->height) {
+    if (x >= image->width || y >= image->height) {
         return;
     }
 
     _buf_write_pixel(image->buf, color, x, y, image->width);
+}
+
+void nexrad_image_draw_line(nexrad_image *image, nexrad_color color, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+    if (image == NULL) {
+        return;
+    }
+
+    int16_t dx = abs(x2 - x1);
+    int16_t dy = abs(y2 - y1);
+    int16_t sx = (x1 < x2) ? 1 : -1;
+    int16_t sy = (y1 < y2) ? 1 : -1;
+    int16_t err = dx - dy;
+
+    while (1) {
+        if (x1 >= 0 && x1 < image->width && y1 >= 0 && y1 < image->height) {
+            _buf_write_pixel(image->buf, color, (uint16_t)x1, (uint16_t)y1, image->width);
+        }
+
+        if (x1 == x2 && y1 == y2) break;
+        int16_t e2 = 2 * err;
+        if (e2 > -dy) {
+            err -= dy;
+            x1 += sx;
+        }
+        if (e2 < dx) {
+            err += dx;
+            y1 += sy;
+        }
+    }
+}
+
+void nexrad_image_draw_features(nexrad_image *image, nexrad_projected_feature_list *features, nexrad_color color) {
+    if (image == NULL || features == NULL) {
+        return;
+    }
+
+    for (size_t i = 0; i < features->count; i++) {
+        nexrad_projected_feature *pf = features->features[i];
+        if (pf->count == 0) {
+            continue;
+        }
+
+        switch (pf->feature->geometry->type) {
+            case NEXRAD_GEOMETRY_POINT:
+                for (size_t j = 0; j < pf->count; j++) {
+                    int16_t x = pf->points[j].x;
+                    int16_t y = pf->points[j].y;
+                    /* Draw 3x3 cross */
+                    nexrad_image_draw_pixel(image, color, x, y);
+                    nexrad_image_draw_pixel(image, color, x - 1, y);
+                    nexrad_image_draw_pixel(image, color, x + 1, y);
+                    nexrad_image_draw_pixel(image, color, x, y - 1);
+                    nexrad_image_draw_pixel(image, color, x, y + 1);
+                }
+                break;
+            case NEXRAD_GEOMETRY_LINESTRING:
+                for (size_t j = 0; j < pf->count - 1; j++) {
+                    nexrad_image_draw_line(image, color, pf->points[j].x, pf->points[j].y, pf->points[j + 1].x, pf->points[j + 1].y);
+                }
+                break;
+            case NEXRAD_GEOMETRY_POLYGON:
+                for (size_t j = 0; j < pf->count - 1; j++) {
+                    nexrad_image_draw_line(image, color, pf->points[j].x, pf->points[j].y, pf->points[j + 1].x, pf->points[j + 1].y);
+                }
+                /* Close loop if not already closed */
+                if (pf->points[0].x != pf->points[pf->count - 1].x || pf->points[0].y != pf->points[pf->count - 1].y) {
+                    nexrad_image_draw_line(image, color, pf->points[pf->count - 1].x, pf->points[pf->count - 1].y, pf->points[0].x, pf->points[0].y);
+                }
+                break;
+        }
+    }
 }
 
 void nexrad_image_draw_run(nexrad_image *image, nexrad_color color, uint16_t x, uint16_t y, uint16_t length) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Dynamic Weather Solutions, Inc. Distributed under the
+ * Copyright (c) 2016-2026 Bryce Lanham. Distributed under the
  * terms of the MIT license.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -423,6 +423,9 @@ int nexrad_geo_projection_latlon_to_pixel(
     int16_t *x, int16_t *y
 );
 
+struct _nexrad_feature_list;
+struct _nexrad_projected_feature_list;
+
 /*!
  * \ingroup projection
  * \brief Map a batch of geographic Lat/Lon coordinates to pixel locations in the projection
@@ -437,6 +440,18 @@ int nexrad_geo_projection_project_points(
     nexrad_geo_cartesian *geo_points,
     nexrad_geo_screen_point *screen_points,
     size_t count
+);
+
+/*!
+ * \ingroup projection
+ * \brief Map a list of meteorological features to screen points in the projection
+ * \param features A list of meteorological features
+ * \param proj A geographic projection object
+ * \return A new projected feature list, or NULL on failure
+ */
+struct _nexrad_projected_feature_list *nexrad_feature_list_project(
+    struct _nexrad_feature_list *features,
+    nexrad_geo_projection *proj
 );
 
 typedef void (*nexrad_geo_line_cb)(int16_t x1, int16_t y1, int16_t x2, int16_t y2, void *user_data);

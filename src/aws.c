@@ -30,3 +30,27 @@ int nexrad_aws_build_level3_url(char *dest, size_t destlen, const char *icao, co
 
     return 0;
 }
+
+int nexrad_aws_build_spc_outlook_url(char *dest, size_t destlen, int day) {
+    if (!dest || day < 1 || day > 3) return -1;
+
+    int res = snprintf(dest, destlen, "https://www.spc.noaa.gov/products/outlook/day%dotlk_cat.geojson", day);
+
+    if (res < 0 || (size_t)res >= destlen) {
+        return -1;
+    }
+
+    return 0;
+}
+
+int nexrad_aws_build_nws_warning_url(char *dest, size_t destlen, const char *icao) {
+    if (!dest || !icao) return -1;
+
+    int res = snprintf(dest, destlen, "https://api.weather.gov/alerts/active?radarStation=%s", icao);
+
+    if (res < 0 || (size_t)res >= destlen) {
+        return -1;
+    }
+
+    return 0;
+}

@@ -4,7 +4,7 @@ set(NEXRAD_SOURCES
     color.c date.c error.c geo.c poly.c dvl.c
     eet.c util.c pnglite.c geodesic.c level2.c
     station.c station_data.c
-    aws.c
+    aws.c feature.c geojson.c
 )
 
 add_library(nexrad SHARED ${NEXRAD_SOURCES})

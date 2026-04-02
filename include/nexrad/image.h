@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Dynamic Weather Solutions, Inc. Distributed under the
+ * Copyright (c) 2016-2026 Bryce Lanham. Distributed under the
  * terms of the MIT license.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -160,6 +160,41 @@ void nexrad_image_draw_arc_segment(nexrad_image *image,
     nexrad_color color,
     int amin, int amax,
     int rmin, int rmax
+);
+
+struct _nexrad_projected_feature_list;
+
+/*!
+ * \ingroup drawing
+ * \brief Draw a line between two points in buffer
+ * \param image An image buffer object
+ * \param color A color table entry
+ * \param x1 X coordinate of start point
+ * \param y1 Y coordinate of start point
+ * \param x2 X coordinate of end point
+ * \param y2 Y coordinate of end point
+ *
+ * Draw a line of the specified color between two points in the image using
+ * Bresenham's line algorithm.
+ */
+void nexrad_image_draw_line(nexrad_image *image,
+    nexrad_color color,
+    int16_t x1, int16_t y1,
+    int16_t x2, int16_t y2
+);
+
+/*!
+ * \ingroup drawing
+ * \brief Draw projected features onto image buffer
+ * \param image An image buffer object
+ * \param features A list of projected features
+ * \param color A color table entry
+ *
+ * Draw a list of projected meteorological features onto the image buffer.
+ */
+void nexrad_image_draw_features(nexrad_image *image,
+    struct _nexrad_projected_feature_list *features,
+    nexrad_color color
 );
 
 #endif /* _NEXRAD_IMAGE_H */

@@ -22,9 +22,17 @@
  */
 
 #include <stdlib.h>
+#include <math.h>
+#include <string.h>
 #include "util.h"
 
 #include <nexrad/packet.h>
+#include <nexrad/geo.h>
+#include <nexrad/feature.h>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 enum nexrad_packet_type nexrad_packet_get_type(nexrad_packet *packet) {
     if (packet == NULL) return 0;
@@ -145,6 +153,76 @@ int nexrad_packet_read_vector_data(nexrad_packet *packet, int *magnitude, nexrad
         vector->j2_start = (int16_t)be16toh(data->j2_start);
         vector->i2_end   = (int16_t)be16toh(data->i2_end);
         vector->j2_end   = (int16_t)be16toh(data->j2_end);
+    }
+
+    return 0;
+}
+
+int nexrad_packet_to_feature(nexrad_packet *packet, nexrad_geo_cartesian *radar_loc, nexrad_feature **feature) {
+    if (packet == NULL || radar_loc == NULL || feature == NULL) {
+        return -1;
+    }
+
+    enum nexrad_packet_type type = nexrad_packet_get_type(packet);
+    int i, j;
+    uint32_t id = 0;
+    char name[32] = {0};
+    const char *event_type = NULL;
+
+    if (type == NEXRAD_PACKET_HAIL) {
+        if (nexrad_packet_read_hail_data(packet, &i, &j, NULL, NULL, NULL) < 0) {
+            return -1;
+        }
+        strcpy(name, "Hail");
+        event_type = "HAIL";
+    } else if (type == NEXRAD_PACKET_CELL) {
+        char cell_id[3] = {0};
+        if (nexrad_packet_read_cell_data(packet, &i, &j, cell_id, sizeof(cell_id)) < 0) {
+            return -1;
+        }
+        strcpy(name, cell_id);
+        event_type = "CELL";
+        /* Parse ID: combine first two chars into a 16-bit value */
+        id = (uint32_t)((((uint8_t)cell_id[0]) << 8) | (uint8_t)cell_id[1]);
+    } else {
+        return -1;
+    }
+
+    /* Convert i, j to polar coordinates relative to radar */
+    double range_meters = sqrt((double)i*i + (double)j*j) * 250.0;
+    double azimuth_degrees = atan2((double)i, (double)j) * 180.0 / M_PI;
+    if (azimuth_degrees < 0) {
+        azimuth_degrees += 360.0;
+    }
+
+    nexrad_geo_polar polar = { .azimuth = azimuth_degrees, .range = range_meters };
+    nexrad_geo_cartesian dest;
+    nexrad_geo_spheroid *spheroid = nexrad_geo_spheroid_create();
+    if (spheroid == NULL) {
+        return -1;
+    }
+
+    nexrad_geo_find_cartesian_dest(spheroid, radar_loc, &dest, &polar);
+    nexrad_geo_spheroid_destroy(spheroid);
+
+    /* Create geometry */
+    nexrad_geo_cartesian *points = malloc(sizeof(nexrad_geo_cartesian));
+    if (points == NULL) {
+        return -1;
+    }
+    memcpy(points, &dest, sizeof(nexrad_geo_cartesian));
+
+    nexrad_geometry *geometry = nexrad_geometry_create(NEXRAD_GEOMETRY_POINT, points, 1);
+    if (geometry == NULL) {
+        free(points);
+        return -1;
+    }
+
+    /* Create feature */
+    *feature = nexrad_feature_create(id, name, geometry, event_type, 0);
+    if (*feature == NULL) {
+        nexrad_geometry_destroy(geometry);
+        return -1;
     }
 
     return 0;

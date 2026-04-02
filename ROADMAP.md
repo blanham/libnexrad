@@ -46,3 +46,15 @@ This document outlines the planned improvements for extending `libnexrad` to sup
 - [x] **Station Database:**
     - Embed a comprehensive database of 160 NEXRAD station locations and altitudes into the library.
     - Refactor library internals to use the global station database.
+
+## Phase 7: Meteorological Features (Completed)
+- [x] **Generic Feature API:**
+    - Unified structure for points, linestrings, and polygons in Lat/Lon space.
+- [x] **GeoJSON Support:**
+    - Integrated `json.h` for parsing NWS and SPC GeoJSON feeds.
+- [x] **URL Discovery Builders:**
+    - Builders for SPC Outlooks and NWS Active Warnings API.
+- [x] **Level III Indicator Support:**
+    - Convert legacy Level III packets (Hail, Storm Cells/TVS) into geographic features.
+- [x] **Integrated Rendering:**
+    - On-demand projection and rasterization of features onto radar images.

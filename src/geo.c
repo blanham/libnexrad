@@ -34,6 +34,7 @@
 #include "util.h"
 
 #include <nexrad/geo.h>
+#include <nexrad/feature.h>
 
 struct _nexrad_geo_spheroid {
     struct geod_geodesic * geod;
@@ -672,6 +673,44 @@ int nexrad_geo_projection_project_lines(nexrad_geo_projection *proj, nexrad_geo_
         px = cx; py = cy; p_vis = c_vis;
     }
     return 0;
+}
+
+nexrad_projected_feature_list *nexrad_feature_list_project(nexrad_feature_list *features, nexrad_geo_projection *proj) {
+    if (!features || !proj) return NULL;
+
+    nexrad_projected_feature_list *list = (nexrad_projected_feature_list *)calloc(1, sizeof(nexrad_projected_feature_list));
+    if (!list) return NULL;
+
+    list->features = (nexrad_projected_feature **)calloc(features->count, sizeof(nexrad_projected_feature *));
+    if (!list->features) {
+        free(list);
+        return NULL;
+    }
+    list->count = features->count;
+
+    for (size_t i = 0; i < features->count; i++) {
+        nexrad_feature *f = features->features[i];
+        
+        nexrad_projected_feature *pf = (nexrad_projected_feature *)calloc(1, sizeof(nexrad_projected_feature));
+        if (!pf) goto error;
+
+        pf->feature = f;
+        list->features[i] = pf;
+
+        if (f && f->geometry && f->geometry->count > 0) {
+            pf->count = f->geometry->count;
+            pf->points = (nexrad_geo_screen_point *)calloc(pf->count, sizeof(nexrad_geo_screen_point));
+            if (!pf->points) goto error;
+
+            nexrad_geo_projection_project_points(proj, f->geometry->points, pf->points, pf->count);
+        }
+    }
+
+    return list;
+
+error:
+    nexrad_projected_feature_list_destroy(list);
+    return NULL;
 }
 
 int nexrad_geo_projection_find_cartesian_point(nexrad_geo_projection *proj, uint16_t x, uint16_t y, nexrad_geo_cartesian *cartesian) {

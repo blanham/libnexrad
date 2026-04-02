@@ -28,6 +28,10 @@
 
 #include <nexrad/vector.h>
 
+/* Forward declarations to avoid circular dependencies */
+struct _nexrad_geo_cartesian;
+struct _nexrad_feature;
+
 #define NEXRAD_PACKET_CELL_ID_LEN 2
 
 enum nexrad_packet_type {
@@ -108,12 +112,12 @@ int nexrad_packet_read_cell_data(nexrad_packet *packet,
     int *i, int *j, char *id, size_t destlen
 );
 
-int nexrad_packet_read_hail_data(nexrad_packet *packet,
-    int *i, int *j, int *probability, int *probability_severe, int *max_size
-);
+int nexrad_packet_read_hail_data(nexrad_packet *packet, int *i, int *j, int *probability, int *probability_severe, int *max_size);
 
 int nexrad_packet_read_vector_data(nexrad_packet *packet,
     int *magnitude, nexrad_vector *vector
 );
+
+int nexrad_packet_to_feature(nexrad_packet *packet, struct _nexrad_geo_cartesian *radar_loc, struct _nexrad_feature **feature);
 
 #endif /* _NEXRAD_PACKET_H */

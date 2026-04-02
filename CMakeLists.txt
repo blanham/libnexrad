@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(libnexrad VERSION 0.8.0 LANGUAGES C)
+project(libnexrad VERSION 0.8.5 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

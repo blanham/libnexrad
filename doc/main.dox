@@ -1,19 +1,27 @@
 /**
  * \mainpage libnexrad Documentation
  *
- * The documentation herein shall provide sufficient information required to
- * perform most requisite manipulations of NEXRAD Level III product file data
- * as provided by NOAA in the pursuit of analyzing and imaging radial radar
- * data, as well as for parsing textual data provided in some NOAA products.
+ * libnexrad is a high-performance C library for processing NEXRAD radar data,
+ * supporting both Level II (base data) and Level III (products). It provides
+ * tools for decompression, decoding, geographic projection, and rasterization
+ * of radar moments.
  *
- * Further information on the NEXRAD Level III product file format, NIDS
- * (NEXRAD Information Dissemination Service) may be located at NOAA's Radar
- * Operations Center web site:
+ * \section features Key Features
+ * - **Level II Support**: Robust decoding of Message Type 1 and Type 31 records.
+ * - **Level III Support**: Full parsing of NIDS product files and symbology blocks.
+ * - **Geographic Projection**: Built-in support for Equirectangular and Mercator 
+ *   projections with slant-range correction.
+ * - **Meteorological Features**: Integrated API for parsing and rendering NWS warnings, 
+ *   SPC outlooks (GeoJSON), and storm indicators (TVS/Hail).
+ * - **Visualization**: High-speed rasterizer for creating map-aligned radar images.
+ *
+ * \section resources External Resources
+ * Further information on the NEXRAD product formats may be located at NOAA's 
+ * Radar Operations Center web site:
  *
  * http://www.roc.noaa.gov/wsr88d/BuildInfo/Files.aspx
  *
- * \copyright (c) 2016 Dynamic Weather Solutions, Inc. Distributed under the
- * terms of the MIT license.
+ * \copyright (c) 2013-2026 Bryce Lanham. Distributed under the terms of the MIT license.
  *
- * \author Alexandra Hrefna Hilmisdóttir &lt;xan@xan.email&gt;
+ * \author Bryce Lanham
  */

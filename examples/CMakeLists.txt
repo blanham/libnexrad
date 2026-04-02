@@ -1,6 +1,7 @@
 set(EXAMPLES
     display drawarc savepng proj
-    showproj psychedelic level2_info proj_test
+    showproj psychedelic level2_info proj_test test_geojson
+    test_url_builders render_features
 )
 
 foreach(example ${EXAMPLES})
