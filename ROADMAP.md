@@ -58,3 +58,15 @@ This document outlines the planned improvements for extending `libnexrad` to sup
     - Convert legacy Level III packets (Hail, Storm Cells/TVS) into geographic features.
 - [x] **Integrated Rendering:**
     - On-demand projection and rasterization of features onto radar images.
+
+## Phase 8: Widget Optimization & Expansion (Planned)
+- [ ] **Full Level III Product Support:**
+    - Implement parsers for high-res Velocity, Dual-Pol (ZDR, CC), and derived products.
+- [ ] **SIMD Acceleration:**
+    - SSE/AVX optimizations for `geo.c` projection math and `image.c` blitting.
+- [ ] **Ruby Bindings:**
+    - Create a C-extension for Ruby to enable high-performance radar widget development.
+- [ ] **Rendering Engine Evolution:**
+    - Evaluate and implement a more robust rendering API (Pixman/Cairo integration vs. optimized internal rasterizer).
+- [ ] **Dependency-Free Fetching Examples:**
+    - Provide `examples/` using `libcurl` to demonstrate URL builders without adding core dependencies.
