@@ -17,14 +17,6 @@ int main() {
     /* Define some colors */
     nexrad_color red = {255, 0, 0, 255};
     nexrad_color green = {0, 255, 0, 255};
-    nexrad_color white = {255, 255, 255, 255};
-
-    /* Draw a white background (optional, it's black by default) */
-    /* for (uint16_t y = 0; y < height; y++) {
-        for (uint16_t x = 0; x < width; x++) {
-            nexrad_image_draw_pixel(image, white, x, y);
-        }
-    } */
 
     /* Create a manual projected feature list */
     nexrad_projected_feature_list *pfl = malloc(sizeof(nexrad_projected_feature_list));
@@ -41,9 +33,10 @@ int main() {
     nexrad_projected_feature *pf1 = malloc(sizeof(nexrad_projected_feature));
     pf1->feature = f1;
     pf1->count = 1;
-    pf1->points = malloc(sizeof(nexrad_geo_screen_point));
-    pf1->points[0].x = 100;
-    pf1->points[0].y = 100;
+    pf1->type = NEXRAD_POINT_INT16;
+    pf1->points = malloc(sizeof(nexrad_render_point));
+    pf1->points[0].d.i16.x = 100;
+    pf1->points[0].d.i16.y = 100;
     pf1->points[0].visible = 1;
 
     /* Feature 2: A triangle (polygon) */
@@ -56,10 +49,11 @@ int main() {
     nexrad_projected_feature *pf2 = malloc(sizeof(nexrad_projected_feature));
     pf2->feature = f2;
     pf2->count = 3;
-    pf2->points = malloc(sizeof(nexrad_geo_screen_point) * 3);
-    pf2->points[0].x = 200; pf2->points[0].y = 200;
-    pf2->points[1].x = 300; pf2->points[1].y = 200;
-    pf2->points[2].x = 250; pf2->points[2].y = 300;
+    pf2->type = NEXRAD_POINT_INT16;
+    pf2->points = malloc(sizeof(nexrad_render_point) * 3);
+    pf2->points[0].d.i16.x = 200; pf2->points[0].d.i16.y = 200; pf2->points[0].visible = 1;
+    pf2->points[1].d.i16.x = 300; pf2->points[1].d.i16.y = 200; pf2->points[1].visible = 1;
+    pf2->points[2].d.i16.x = 250; pf2->points[2].d.i16.y = 300; pf2->points[2].visible = 1;
 
     pfl->features[0] = pf1;
     pfl->features[1] = pf2;
@@ -78,7 +72,6 @@ int main() {
     }
 
     /* Cleanup */
-    /* Note: simplified cleanup for example */
     nexrad_image_destroy(image);
     free(pf1->points);
     free(pf1);

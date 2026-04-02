@@ -9,8 +9,20 @@ find_package(BZip2 REQUIRED)
 find_package(ZLIB REQUIRED)
 find_library(MATH_LIBRARY m)
 
+# Optional Dependencies for Rendering Adapters
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(CAIRO cairo)
+endif()
+
+# LVGL discovery (assuming installed or provided as a submodule/sysroot)
+# We'll just check for the header for now or let the user provide the path
+find_path(LVGL_INCLUDE_DIR lvgl.h)
+
 # Options
 option(NEXRAD_BUILD_EXAMPLES "Build example applications" ON)
+option(NEXRAD_ENABLE_CAIRO "Enable Cairo rendering adapter" ${CAIRO_FOUND})
+option(NEXRAD_ENABLE_LVGL "Enable LVGL rendering adapter" ${LVGL_INCLUDE_DIR})
 
 # Configuration Header
 include(CheckIncludeFile)

@@ -7,8 +7,25 @@ set(NEXRAD_SOURCES
     aws.c feature.c geojson.c
 )
 
-add_library(nexrad SHARED ${NEXRAD_SOURCES})
-add_library(nexrad_static STATIC ${NEXRAD_SOURCES})
+set(NEXRAD_RENDER_SOURCES)
+set(NEXRAD_RENDER_LIBS)
+set(NEXRAD_RENDER_INCLUDES)
+
+if(NEXRAD_ENABLE_CAIRO)
+    list(APPEND NEXRAD_RENDER_SOURCES render/cairo.c)
+    list(APPEND NEXRAD_RENDER_LIBS ${CAIRO_LIBRARIES})
+    list(APPEND NEXRAD_RENDER_INCLUDES ${CAIRO_INCLUDE_DIRS})
+    add_definitions(-DNEXRAD_HAS_CAIRO)
+endif()
+
+if(NEXRAD_ENABLE_LVGL)
+    list(APPEND NEXRAD_RENDER_SOURCES render/lvgl.c)
+    list(APPEND NEXRAD_RENDER_INCLUDES ${LVGL_INCLUDE_DIR})
+    add_definitions(-DNEXRAD_HAS_LVGL)
+endif()
+
+add_library(nexrad SHARED ${NEXRAD_SOURCES} ${NEXRAD_RENDER_SOURCES})
+add_library(nexrad_static STATIC ${NEXRAD_SOURCES} ${NEXRAD_RENDER_SOURCES})
 set_target_properties(nexrad_static PROPERTIES OUTPUT_NAME nexrad)
 
 add_library(nexrad::nexrad ALIAS nexrad)
@@ -18,14 +35,17 @@ target_include_directories(nexrad PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../include>
     $<INSTALL_INTERFACE:include>
 )
+target_include_directories(nexrad PRIVATE ${NEXRAD_RENDER_INCLUDES})
+
 target_include_directories(nexrad_static PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../include>
     $<INSTALL_INTERFACE:include>
 )
+target_include_directories(nexrad_static PRIVATE ${NEXRAD_RENDER_INCLUDES})
 
-target_link_libraries(nexrad PRIVATE BZip2::BZip2 ZLIB::ZLIB ${MATH_LIBRARY})
-target_link_libraries(nexrad_static PRIVATE BZip2::BZip2 ZLIB::ZLIB ${MATH_LIBRARY})
+target_link_libraries(nexrad PRIVATE BZip2::BZip2 ZLIB::ZLIB ${MATH_LIBRARY} ${NEXRAD_RENDER_LIBS})
+target_link_libraries(nexrad_static PRIVATE BZip2::BZip2 ZLIB::ZLIB ${MATH_LIBRARY} ${NEXRAD_RENDER_LIBS})
 
 include(GNUInstallDirs)
 
