@@ -42,6 +42,7 @@
 #include <stdint.h>
 #include <nexrad/image.h>
 #include <nexrad/color.h>
+#include <nexrad/render/point.h>
 
 enum nexrad_geo_projection_type {
     NEXRAD_GEO_PROJECTION_NONE,
@@ -423,6 +424,22 @@ int nexrad_geo_projection_latlon_to_pixel(
     int16_t *x, int16_t *y
 );
 
+/*!
+ * \ingroup projection
+ * \brief Map a geographic Lat/Lon coordinate to a high-precision pixel location in the projection
+ * \param proj A geographic projection object
+ * \param lat Latitude of geographic coordinate
+ * \param lon Longitude of geographic coordinate
+ * \param x A pointer to a double to write projection X coordinate to
+ * \param y A pointer to a double to write projection Y coordinate to
+ * \return 0 if coordinate is visible within projection, -1 if it is outside
+ */
+int nexrad_geo_projection_latlon_to_precise_pixel(
+    nexrad_geo_projection *proj,
+    double lat, double lon,
+    double *x, double *y
+);
+
 struct _nexrad_feature_list;
 struct _nexrad_projected_feature_list;
 
@@ -447,11 +464,13 @@ int nexrad_geo_projection_project_points(
  * \brief Map a list of meteorological features to screen points in the projection
  * \param features A list of meteorological features
  * \param proj A geographic projection object
+ * \param type Precision type for resulting points
  * \return A new projected feature list, or NULL on failure
  */
 struct _nexrad_projected_feature_list *nexrad_feature_list_project(
     struct _nexrad_feature_list *features,
-    nexrad_geo_projection *proj
+    nexrad_geo_projection *proj,
+    nexrad_point_type type
 );
 
 typedef void (*nexrad_geo_line_cb)(int16_t x1, int16_t y1, int16_t x2, int16_t y2, void *user_data);

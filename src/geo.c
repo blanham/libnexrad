@@ -348,18 +348,32 @@ static int _mercator_find_y(double lat, int height) {
     return cy - (int)round(height * (yrad / (2 * M_PI)));
     }
 
+    static void _equirect_find_xy_precise(double lat, double lon, uint32_t world_width, uint32_t world_height, double *x, double *y) {
+        *x = (world_width * (lon + 180.0)) / 360.0;
+        *y = (double)world_height - (world_height * (lat + 90.0) / 180.0);
+    }
+
+    static void _mercator_find_xy_precise(double lat, double lon, uint32_t world_size, double *x, double *y) {
+        static const double rad = M_PI / 180.0;
+        double cy = (double)world_size / 2.0;
+        *x = (double)world_size * ((lon + 180.0) / 360.0);
+        double sinl = sin(lat * rad);
+        double yrad = log((1.0 + sinl) / (1.0 - sinl)) / 2.0;
+        *y = cy - (world_size * (yrad / (2.0 * M_PI)));
+    }
+
     static void _equirect_find_xy(double lat, double lon, uint32_t world_width, uint32_t world_height, int *x, int *y) {
-    *x = (int)round((world_width * (lon + 180.0)) / 360.0);
-    *y = (int)round(world_height - (world_height * (lat + 90.0) / 180.0));
+        double dx, dy;
+        _equirect_find_xy_precise(lat, lon, world_width, world_height, &dx, &dy);
+        *x = (int)round(dx);
+        *y = (int)round(dy);
     }
 
     static void _mercator_find_xy(double lat, double lon, uint32_t world_size, int *x, int *y) {
-    static const double rad = M_PI / 180.0;
-    int cy = world_size / 2;
-    *x = (int)round((double)world_size * ((lon + 180.0) / 360.0));
-    double sinl = sin(lat * rad);
-    double yrad = log((1.0 + sinl) / (1.0 - sinl)) / 2.0;
-    *y = cy - (int)round(world_size * (yrad / (2.0 * M_PI)));
+        double dx, dy;
+        _mercator_find_xy_precise(lat, lon, world_size, &dx, &dy);
+        *x = (int)round(dx);
+        *y = (int)round(dy);
     }
 
     nexrad_geo_projection *nexrad_geo_projection_create_mercator(
@@ -628,20 +642,31 @@ int nexrad_geo_projection_find_polar_point(nexrad_geo_projection *proj, uint16_t
 }
 
 int nexrad_geo_projection_latlon_to_pixel(nexrad_geo_projection *proj, double lat, double lon, int16_t *x, int16_t *y) {
+    double dx, dy;
+    int res = nexrad_geo_projection_latlon_to_precise_pixel(proj, lat, lon, &dx, &dy);
+    if (x) *x = (int16_t)round(dx);
+    if (y) *y = (int16_t)round(dy);
+    return res;
+}
+
+int nexrad_geo_projection_latlon_to_precise_pixel(nexrad_geo_projection *proj, double lat, double lon, double *x, double *y) {
     if (!proj) return -1;
     uint16_t type = be16toh(proj->header->type);
     uint32_t world_w = be32toh(proj->header->world_width);
     uint32_t world_h = be32toh(proj->header->world_height);
-    int wx, wy;
+    double wx, wy;
 
-    if (type == NEXRAD_GEO_PROJECTION_EQUIRECT) _equirect_find_xy(lat, lon, world_w, world_h, &wx, &wy);
-    else if (type == NEXRAD_GEO_PROJECTION_MERCATOR) _mercator_find_xy(lat, lon, world_w, &wx, &wy);
+    if (type == NEXRAD_GEO_PROJECTION_EQUIRECT) _equirect_find_xy_precise(lat, lon, world_w, world_h, &wx, &wy);
+    else if (type == NEXRAD_GEO_PROJECTION_MERCATOR) _mercator_find_xy_precise(lat, lon, world_w, &wx, &wy);
     else return -1;
 
-    *x = (int16_t)(wx - be32toh(proj->header->world_offset_x));
-    *y = (int16_t)(wy - be32toh(proj->header->world_offset_y));
+    double rx = wx - (double)be32toh(proj->header->world_offset_x);
+    double ry = wy - (double)be32toh(proj->header->world_offset_y);
 
-    if (*x < 0 || *x >= be16toh(proj->header->width) || *y < 0 || *y >= be16toh(proj->header->height)) return -1;
+    if (x) *x = rx;
+    if (y) *y = ry;
+
+    if (rx < 0 || rx >= be16toh(proj->header->width) || ry < 0 || ry >= be16toh(proj->header->height)) return -1;
     return 0;
 }
 
@@ -675,7 +700,38 @@ int nexrad_geo_projection_project_lines(nexrad_geo_projection *proj, nexrad_geo_
     return 0;
 }
 
-nexrad_projected_feature_list *nexrad_feature_list_project(nexrad_feature_list *features, nexrad_geo_projection *proj) {
+static int _project_points_render(
+    nexrad_geo_projection *proj,
+    nexrad_geo_cartesian *geo_points,
+    nexrad_render_point *render_points,
+    size_t count,
+    nexrad_point_type type
+) {
+    if (!proj || !geo_points || !render_points) return -1;
+    for (size_t i = 0; i < count; i++) {
+        double dx, dy;
+        int res = nexrad_geo_projection_latlon_to_precise_pixel(proj, geo_points[i].lat, geo_points[i].lon, &dx, &dy);
+        render_points[i].visible = (res == 0);
+        
+        switch (type) {
+            case NEXRAD_POINT_INT16:
+                render_points[i].d.i16.x = (int16_t)round(dx);
+                render_points[i].d.i16.y = (int16_t)round(dy);
+                break;
+            case NEXRAD_POINT_FLOAT:
+                render_points[i].d.f32.x = (float)dx;
+                render_points[i].d.f32.y = (float)dy;
+                break;
+            case NEXRAD_POINT_FIXED_16_16:
+                render_points[i].d.q16.x = (int32_t)(dx * 65536.0);
+                render_points[i].d.q16.y = (int32_t)(dy * 65536.0);
+                break;
+        }
+    }
+    return 0;
+}
+
+nexrad_projected_feature_list *nexrad_feature_list_project(nexrad_feature_list *features, nexrad_geo_projection *proj, nexrad_point_type type) {
     if (!features || !proj) return NULL;
 
     nexrad_projected_feature_list *list = (nexrad_projected_feature_list *)calloc(1, sizeof(nexrad_projected_feature_list));
@@ -695,14 +751,15 @@ nexrad_projected_feature_list *nexrad_feature_list_project(nexrad_feature_list *
         if (!pf) goto error;
 
         pf->feature = f;
+        pf->type = type;
         list->features[i] = pf;
 
         if (f && f->geometry && f->geometry->count > 0) {
             pf->count = f->geometry->count;
-            pf->points = (nexrad_geo_screen_point *)calloc(pf->count, sizeof(nexrad_geo_screen_point));
+            pf->points = (nexrad_render_point *)calloc(pf->count, sizeof(nexrad_render_point));
             if (!pf->points) goto error;
 
-            nexrad_geo_projection_project_points(proj, f->geometry->points, pf->points, pf->count);
+            _project_points_render(proj, f->geometry->points, pf->points, pf->count, type);
         }
     }
 
