@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Dynamic Weather Solutions, Inc. Distributed under the
+ * Copyright (c) 2013-2026 Bryce Lanham. Distributed under the
  * terms of the MIT license.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,6 +28,12 @@
 
 #include <nexrad/vector.h>
 
+/**
+ * @file nexrad/packet.h
+ * @brief NEXRAD Level III data packet structures and parsing.
+ * @author Bryce Lanham
+ */
+
 /* Forward declarations to avoid circular dependencies */
 struct _nexrad_geo_cartesian;
 struct _nexrad_feature;
@@ -35,15 +41,16 @@ struct _nexrad_feature;
 #define NEXRAD_PACKET_CELL_ID_LEN 2
 
 enum nexrad_packet_type {
-    NEXRAD_PACKET_UNKNOWN     =  0,
-    NEXRAD_PACKET_TEXT        =  8,
-    NEXRAD_PACKET_VECTOR      = 10,
-    NEXRAD_PACKET_CELL        = 15,
-    NEXRAD_PACKET_RADIAL      = 16,
-    NEXRAD_PACKET_HAIL        = 19,
-    NEXRAD_PACKET_RADIAL_AF1F = 0xaf1f,
-    NEXRAD_PACKET_RASTER_BA0F = 0xba0f,
-    NEXRAD_PACKET_RASTER_BA07 = 0xba07
+    NEXRAD_PACKET_UNKNOWN        =  0,
+    NEXRAD_PACKET_TEXT           =  8,
+    NEXRAD_PACKET_VECTOR         = 10,
+    NEXRAD_PACKET_CELL           = 15,
+    NEXRAD_PACKET_RADIAL         = 16,
+    NEXRAD_PACKET_HAIL           = 19,
+    NEXRAD_PACKET_DIGITAL_RADIAL = 31, /**< Digital Radial Data Array (Modern High Res) */
+    NEXRAD_PACKET_RADIAL_AF1F    = 0xaf1f,
+    NEXRAD_PACKET_RASTER_BA0F    = 0xba0f,
+    NEXRAD_PACKET_RASTER_BA07    = 0xba07
 };
 
 #pragma pack(push)
@@ -96,6 +103,20 @@ typedef struct _nexrad_vector_packet {
      int16_t j2_end;    /* Cartesian destination vector */
 } nexrad_vector_packet;
 
+/**
+ * @brief Digital Radial Data Array (Packet 31)
+ */
+typedef struct _nexrad_digital_radial_packet {
+    nexrad_packet_header header;
+    uint16_t rangebin_first;
+    uint16_t rangebin_count;
+     int16_t i;
+     int16_t j;
+    uint16_t scale;
+    uint16_t rays;
+    /* Followed by ray data... */
+} nexrad_digital_radial_packet;
+
 #pragma pack(pop)
 
 enum nexrad_packet_type nexrad_packet_get_type(nexrad_packet *packet);
@@ -118,6 +139,13 @@ int nexrad_packet_read_vector_data(nexrad_packet *packet,
     int *magnitude, nexrad_vector *vector
 );
 
+/**
+ * @brief Convert a storm indicator packet to a geographic feature.
+ * @param packet Level III packet object.
+ * @param radar_loc Lat/Lon location of the radar station.
+ * @param feature Output pointer for the new feature.
+ * @return 0 on success, -1 on failure.
+ */
 int nexrad_packet_to_feature(nexrad_packet *packet, struct _nexrad_geo_cartesian *radar_loc, struct _nexrad_feature **feature);
 
 #endif /* _NEXRAD_PACKET_H */

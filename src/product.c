@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Dynamic Weather Solutions, Inc. Distributed under the
+ * Copyright (c) 2013-2026 Bryce Lanham. Distributed under the
  * terms of the MIT license.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -49,6 +49,19 @@ enum nexrad_product_type nexrad_product_get_type(nexrad_product_description *pro
     }
 
     return be16toh(product->type);
+}
+
+const char *nexrad_product_get_name(enum nexrad_product_type type) {
+    switch (type) {
+        case NEXRAD_PRODUCT_NHI: return "Hail Index";
+        case NEXRAD_PRODUCT_N0R: return "Base Reflectivity";
+        case NEXRAD_PRODUCT_N0V: return "Base Velocity";
+        case NEXRAD_PRODUCT_DVL: return "Digital VIL";
+        case NEXRAD_PRODUCT_EET: return "Enhanced Echo Tops";
+        case NEXRAD_PRODUCT_N0X: return "Base Reflectivity (Super Res)";
+        case NEXRAD_PRODUCT_N0C: return "Correlation Coefficient";
+        default: return "Unknown";
+    }
 }
 
 int nexrad_product_read_dvil_attributes(nexrad_product_description *product, int *avset_angle, int *max_dvil, int *edited_radials, int *compression, size_t *size) {

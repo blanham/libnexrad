@@ -44,11 +44,16 @@ enum nexrad_product_compression_type {
 };
 
 enum nexrad_product_type {
-    NEXRAD_PRODUCT_NHI =  59,
-    NEXRAD_PRODUCT_N0R =  94,
-    NEXRAD_PRODUCT_DVL = 134,
-    NEXRAD_PRODUCT_EET = 135,
-    NEXRAD_PRODUCT_N0X = 159
+    NEXRAD_PRODUCT_NHI =  59,  /* Hail Index */
+    NEXRAD_PRODUCT_N0R =  94,  /* Base Reflectivity (Legacy) */
+    NEXRAD_PRODUCT_N0Q =  94,  /* Base Reflectivity (High Res) - often same ID but 8-bit */
+    NEXRAD_PRODUCT_N0V =  99,  /* Base Velocity (Legacy) */
+    NEXRAD_PRODUCT_N0U =  99,  /* Base Velocity (High Res) */
+    NEXRAD_PRODUCT_DVL = 134,  /* Digital VIL */
+    NEXRAD_PRODUCT_EET = 135,  /* Enhanced Echo Tops */
+    NEXRAD_PRODUCT_N0X = 159,  /* Base Reflectivity (Super Res) */
+    NEXRAD_PRODUCT_ZDR = 159,  /* Differential Reflectivity - check ID */
+    NEXRAD_PRODUCT_N0C = 161   /* Correlation Coefficient */
 };
 
 enum nexrad_radar_mode {
