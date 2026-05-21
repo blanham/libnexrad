@@ -80,7 +80,7 @@ static int _valid_packet(nexrad_radial_packet *packet, enum nexrad_radial_type t
     switch (type) {
         case NEXRAD_RADIAL_RLE:     return _valid_rle_packet(packet);
         case NEXRAD_RADIAL_DIGITAL: return _valid_digital_packet(packet);
-        case NEXRAD_PACKET_DIGITAL_RADIAL: return _valid_digital_31_packet(packet);
+        case NEXRAD_RADIAL_DIGITAL_HIRES: return _valid_digital_31_packet(packet);
 
         default: {
             break;
@@ -381,7 +381,7 @@ nexrad_radial_ray *nexrad_radial_read_ray(nexrad_radial *radial, uint8_t **value
         size = sizeof(nexrad_radial_ray) + bins;
 
         if (size % 2) size++;
-    } else if (radial->type == NEXRAD_PACKET_DIGITAL_RADIAL) {
+    } else if (radial->type == NEXRAD_RADIAL_DIGITAL_HIRES) {
         /* Packet 31: 8-bit or 16-bit data. We currently support 8-bit. */
         uint16_t bins = be16toh(ray->size);
         uint8_t *data = (uint8_t *)ray + sizeof(nexrad_radial_ray);

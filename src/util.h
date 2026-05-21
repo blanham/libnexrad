@@ -37,14 +37,14 @@
      ((v & 0x000000ff) << 24))
 
 #define bswap64(v) \
-    (((v & 0xff00000000000000) >> 56) | \
-     ((v & 0x00ff000000000000) >> 40) | \
-     ((v & 0x0000ff0000000000) >> 16) | \
-     ((v & 0x000000ff00000000) >>  8) | \
-     ((v & 0x00000000ff000000) <<  8) | \
-     ((v & 0x0000000000ff0000) << 16) | \
-     ((v & 0x000000000000ff00) << 40) | \
-     ((v & 0x00000000000000ff) << 64))
+    ((((uint64_t)(v) & 0xff00000000000000ULL) >> 56) | \
+     (((uint64_t)(v) & 0x00ff000000000000ULL) >> 40) | \
+     (((uint64_t)(v) & 0x0000ff0000000000ULL) >> 24) | \
+     (((uint64_t)(v) & 0x000000ff00000000ULL) >>  8) | \
+     (((uint64_t)(v) & 0x00000000ff000000ULL) <<  8) | \
+     (((uint64_t)(v) & 0x0000000000ff0000ULL) << 24) | \
+     (((uint64_t)(v) & 0x000000000000ff00ULL) << 40) | \
+     (((uint64_t)(v) & 0x00000000000000ffULL) << 56))
 
 #ifndef _ENDIAN_H
 #ifdef __DO_SWAP_BYTES
@@ -64,7 +64,7 @@
 #endif /* __DO_SWAP_BYTES */
 #endif /* !_ENDIAN_H */
 
-int safecpy(char *dest, char *src, size_t destlen, size_t srclen);
+int safecpy(char *dest, const char *src, size_t destlen, size_t srclen);
 
 float nexrad_bswap_float(float f);
 

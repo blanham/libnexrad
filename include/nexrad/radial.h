@@ -35,8 +35,9 @@
 #define NEXRAD_RADIAL_RANGE_FACTOR    0.001
 
 enum nexrad_radial_type {
-    NEXRAD_RADIAL_RLE     = 0xaf1f,
-    NEXRAD_RADIAL_DIGITAL = 16
+    NEXRAD_RADIAL_RLE           = 0xaf1f,
+    NEXRAD_RADIAL_DIGITAL       = 16,
+    NEXRAD_RADIAL_DIGITAL_HIRES = 31
 };
 
 /*!

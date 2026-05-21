@@ -38,6 +38,10 @@ if(NEXRAD_BUILD_EXAMPLES)
 endif()
 add_subdirectory(colors)
 
+include(CTest)
+enable_testing()
+add_subdirectory(tests)
+
 include(GNUInstallDirs)
 install(EXPORT nexradTargets
     FILE nexradConfig.cmake

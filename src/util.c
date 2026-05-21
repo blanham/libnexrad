@@ -27,21 +27,15 @@
 
 #include "util.h"
 
-int safecpy(char *dest, char *src, size_t destlen, size_t srclen) {
-    size_t copylen = 0;
-
-    if (dest == NULL || src == NULL) {
+int safecpy(char *dest, const char *src, size_t destlen, size_t srclen) {
+    if (dest == NULL || src == NULL || destlen == 0) {
         return -1;
     }
 
-    if (destlen > srclen) {
-        copylen = srclen;
-    } else if (destlen <= srclen) {
-        copylen = destlen - 1;
-    }
+    size_t copylen = (srclen < destlen - 1) ? srclen : destlen - 1;
 
-    memset(dest, '\0', destlen);
-    memcpy(dest, src,  copylen);
+    memcpy(dest, src, copylen);
+    dest[copylen] = '\0';
 
     return 0;
 }
