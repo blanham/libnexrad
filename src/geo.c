@@ -331,8 +331,16 @@ static double _mercator_find_lat(int y, int height) {
     return deg * atan(sinh(r));
 }
 
-static int _mercator_find_y(double lat, int height) {
+static double _clamp_mercator_lat(double lat) {
+    if (lat > NEXRAD_GEO_MERCATOR_MAX_LAT) return NEXRAD_GEO_MERCATOR_MAX_LAT;
+    if (lat < -NEXRAD_GEO_MERCATOR_MAX_LAT) return -NEXRAD_GEO_MERCATOR_MAX_LAT;
+    return lat;
+}
+
+int _mercator_find_y(double lat, int height) {
     static const double rad = M_PI / 180;
+
+    lat = _clamp_mercator_lat(lat);
 
     int cy   = height / 2;
     int sign = (lat >= 0)? 1: -1;
@@ -341,8 +349,7 @@ static int _mercator_find_y(double lat, int height) {
     double yrad = sign * log((1.0 + sinl) / (1.0 - sinl)) / 2.0;
 
     return cy - (int)round(height * (yrad / (2 * M_PI)));
-    }
-
+}
     static void _equirect_find_xy_precise(double lat, double lon, uint32_t world_width, uint32_t world_height, double *x, double *y) {
         *x = (world_width * (lon + 180.0)) / 360.0;
         *y = (double)world_height - (world_height * (lat + 90.0) / 180.0);
@@ -351,6 +358,9 @@ static int _mercator_find_y(double lat, int height) {
     static void _mercator_find_xy_precise(double lat, double lon, uint32_t world_size, double *x, double *y) {
         static const double rad = M_PI / 180.0;
         double cy = (double)world_size / 2.0;
+
+        lat = _clamp_mercator_lat(lat);
+
         *x = (double)world_size * ((lon + 180.0) / 360.0);
         double sinl = sin(lat * rad);
         double yrad = log((1.0 + sinl) / (1.0 - sinl)) / 2.0;
