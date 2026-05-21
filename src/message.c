@@ -714,6 +714,18 @@ int nexrad_message_read_station_location(nexrad_message *message, double *lat, d
 
         return 0;
     } else if (message->level == NEXRAD_LEVEL_2) {
+        /* Priority: Try to find RVOL block in volume first */
+        nexrad_l2_volume_view *vol = nexrad_l2_volume_parse(message);
+        if (vol && vol->lat != 0.0 && vol->lon != 0.0) {
+            if (lat) *lat = vol->lat;
+            if (lon) *lon = vol->lon;
+            if (alt) *alt = vol->alt;
+            nexrad_l2_volume_destroy(vol);
+            return 0;
+        }
+        if (vol) nexrad_l2_volume_destroy(vol);
+
+        /* Fallback: Static station database */
         char station[10];
         if (nexrad_message_read_station(message, station, sizeof(station)) < 0) {
             return -1;
