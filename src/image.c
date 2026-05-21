@@ -75,11 +75,11 @@ nexrad_image *nexrad_image_create(uint16_t width, uint16_t height) {
 
     image->buf      = buf;
     image->size     = size;
-    image->width    = width;
-    image->height   = height;
-    image->radius   = width > height? height: width;
-    image->x_center = width  >> 1;
-    image->y_center = height >> 1;
+    image->width  = width;
+    image->height = height;
+    image->radius = (width > height ? height : width) / 2;
+    image->x_center = width / 2;
+    image->y_center = height / 2;
 
     return image;
 
@@ -261,8 +261,12 @@ void nexrad_image_draw_run(nexrad_image *image, nexrad_color color, uint16_t x, 
         return;
     }
 
-    if (x >= image->width || y >= image->height || x + length > image->width) {
+    if (x >= image->width || y >= image->height) {
         return;
+    }
+
+    if (length > image->width - x) {
+        length = image->width - x;
     }
 
     buf    = image->buf;
@@ -343,22 +347,25 @@ static void _find_arc_octant(int *aminp, int *amaxp, enum octant *octantp) {
     *octantp = octant;
 }
 
-static inline void _draw_arc_points(nexrad_image *image, nexrad_color color, int x, int y, enum octant octant) {
-    uint8_t *buf = image->buf;
+static inline void _safe_write_pixel(nexrad_image *image, nexrad_color color, int x, int y) {
+    if (x >= 0 && x < image->width && y >= 0 && y < image->height) {
+        _buf_write_pixel(image->buf, color, (uint16_t)x, (uint16_t)y, image->width);
+    }
+}
 
+static inline void _draw_arc_points(nexrad_image *image, nexrad_color color, int x, int y, enum octant octant) {
     int xc = image->x_center;
     int yc = image->y_center;
-    int w  = image->width;
 
     switch (octant) {
-        case ESE: _buf_write_pixel(buf, color,  x+xc,  y+yc, w); break;
-        case SSE: _buf_write_pixel(buf, color,  y+xc,  x+yc, w); break;
-        case SSW: _buf_write_pixel(buf, color, -y+xc,  x+yc, w); break;
-        case WSW: _buf_write_pixel(buf, color, -x+xc,  y+yc, w); break;
-        case WNW: _buf_write_pixel(buf, color, -x+xc, -y+yc, w); break;
-        case NNW: _buf_write_pixel(buf, color, -y+xc, -x+yc, w); break;
-        case NNE: _buf_write_pixel(buf, color,  y+xc, -x+yc, w); break;
-        case ENE: _buf_write_pixel(buf, color,  x+xc, -y+yc, w); break;
+        case ESE: _safe_write_pixel(image, color,  x+xc,  y+yc); break;
+        case SSE: _safe_write_pixel(image, color,  y+xc,  x+yc); break;
+        case SSW: _safe_write_pixel(image, color, -y+xc,  x+yc); break;
+        case WSW: _safe_write_pixel(image, color, -x+xc,  y+yc); break;
+        case WNW: _safe_write_pixel(image, color, -x+xc, -y+yc); break;
+        case NNW: _safe_write_pixel(image, color, -y+xc, -x+yc); break;
+        case NNE: _safe_write_pixel(image, color,  y+xc, -x+yc); break;
+        case ENE: _safe_write_pixel(image, color,  x+xc, -y+yc); break;
 
         default: {
             break;
@@ -367,21 +374,18 @@ static inline void _draw_arc_points(nexrad_image *image, nexrad_color color, int
 }
 
 static inline void _draw_arc_complement_points(nexrad_image *image, nexrad_color color, int x, int y, enum octant octant) {
-    uint8_t *buf = image->buf;
-
     int xc = image->x_center;
     int yc = image->y_center;
-    int w  = image->width;
 
     switch (octant) {
-        case ESE: _buf_write_pixel(buf, color,  x+xc-1,  y+yc, w); break;
-        case SSE: _buf_write_pixel(buf, color,  y+xc+1,  x+yc, w); break;
-        case SSW: _buf_write_pixel(buf, color, -y+xc-1,  x+yc, w); break;
-        case WSW: _buf_write_pixel(buf, color, -x+xc+1,  y+yc, w); break;
-        case WNW: _buf_write_pixel(buf, color, -x+xc+1, -y+yc, w); break;
-        case NNW: _buf_write_pixel(buf, color, -y+xc-1, -x+yc, w); break;
-        case NNE: _buf_write_pixel(buf, color,  y+xc+1, -x+yc, w); break;
-        case ENE: _buf_write_pixel(buf, color,  x+xc-1, -y+yc, w); break;
+        case ESE: _safe_write_pixel(image, color,  x+xc-1,  y+yc); break;
+        case SSE: _safe_write_pixel(image, color,  y+xc+1,  x+yc); break;
+        case SSW: _safe_write_pixel(image, color, -y+xc-1,  x+yc); break;
+        case WSW: _safe_write_pixel(image, color, -x+xc+1,  y+yc); break;
+        case WNW: _safe_write_pixel(image, color, -x+xc+1, -y+yc); break;
+        case NNW: _safe_write_pixel(image, color, -y+xc-1, -x+yc); break;
+        case NNE: _safe_write_pixel(image, color,  y+xc+1, -x+yc); break;
+        case ENE: _safe_write_pixel(image, color,  x+xc-1, -y+yc); break;
 
         default: {
             break;
