@@ -159,15 +159,16 @@ int nexrad_level2_get_bin_cartesian(nexrad_geo_spheroid *spheroid, nexrad_geo_ca
     return 0;
 }
 
-nexrad_image *nexrad_level2_create_projected_image(
-    nexrad_message *message,
+nexrad_image *nexrad_level2_render_sweep_projected(
+    nexrad_l2_sweep_view *sweep,
     const char *moment_name,
-    int sweep_num,
     nexrad_color_table *table,
     nexrad_geo_projection *proj,
     float scale,
     float offset
 ) {
+    if (!sweep || !moment_name || !table || !proj) return NULL;
+
     uint16_t rays = 0;
     uint16_t bins = 0;
     uint16_t rb_meters = 0;
@@ -178,52 +179,79 @@ nexrad_image *nexrad_level2_create_projected_image(
     uint8_t *grid = calloc(rays * bins, sizeof(uint8_t));
     if (!grid) return NULL;
 
-    nexrad_level2_message_header *mh = NULL;
-    void *data = NULL;
-    size_t size = 0;
+    for (size_t i = 0; i < sweep->radial_count; i++) {
+        nexrad_l2_radial_view *radial = sweep->radials[i];
+        nexrad_l2_moment_view *mv = NULL;
 
-    nexrad_message_reset_level2(message);
-
-    while (nexrad_message_next_level2_record(message, &mh, &data, &size) == 1) {
-        if (mh->type == 31) {
-            nexrad_level2_data_header *dh = nexrad_level2_get_data_header(data, size);
-            if (!dh) continue;
-            if (dh->elevation_number != sweep_num) continue;
-
-            nexrad_level2_moment_data *moment = nexrad_level2_get_block(dh, moment_name, size);
-            if (!moment) continue;
-
-            float az_angle = nexrad_bswap_float(dh->azimuth_angle);
-            int azimuth_idx = (int)round(az_angle * (rays / 360.0)) % rays;
-
-            uint16_t moment_bins = be16toh(moment->bin_count);
-            int32_t first_gate_m = (int32_t)be16toh(moment->range_to_first_bin);
-            uint16_t gate_width_m = be16toh(moment->bin_size);
-
-            for (int b = 0; b < moment_bins; b++) {
-                float val = nexrad_level2_decode_moment(moment, b);
-                if (val == NEXRAD_LEVEL2_NO_DATA || val == NEXRAD_LEVEL2_RANGE_FOLDED) continue;
-
-                int32_t gate_center_m = first_gate_m + (int32_t)b * gate_width_m;
-                if (gate_center_m < 0) continue;
-
-                uint32_t proj_bin = (uint32_t)round((double)gate_center_m / rb_meters);
-                if (proj_bin >= bins) continue;
-
-                int color_idx = (int)((val * scale) + offset);
-                if (color_idx < 0) color_idx = 0;
-                if (color_idx > 255) color_idx = 255;
-                
-                grid[azimuth_idx * bins + proj_bin] = (uint8_t)color_idx;
+        for (size_t j = 0; j < radial->moment_count; j++) {
+            if (strncmp(radial->moments[j].name, moment_name, 3) == 0) {
+                mv = &radial->moments[j];
+                break;
             }
-        } else if (mh->type == 1) {
-            /* Legacy Message Type 1 rendering is structurally wrong and temporarily disabled. */
-            continue;
+        }
+
+        if (!mv) continue;
+
+        int azimuth_idx = (int)round(radial->azimuth_deg * (rays / 360.0)) % rays;
+
+        for (uint16_t b = 0; b < mv->bin_count; b++) {
+            uint16_t raw_val = 0;
+            if (mv->data_word_bits == 8) {
+                raw_val = mv->raw[b];
+            } else if (mv->data_word_bits == 16) {
+                uint16_t raw_be;
+                memcpy(&raw_be, mv->raw + b * 2, 2);
+                raw_val = be16toh(raw_be);
+            }
+
+            if (raw_val <= 1) continue; // NO_DATA or RANGE_FOLDED
+
+            int32_t gate_center_m = mv->first_gate_m + (int32_t)b * mv->gate_width_m;
+            if (gate_center_m < 0) continue;
+
+            uint32_t proj_bin = (uint32_t)round((double)gate_center_m / rb_meters);
+            if (proj_bin >= bins) continue;
+
+            float val = ((float)raw_val - mv->offset) / mv->scale;
+            int color_idx = (int)((val * scale) + offset);
+            if (color_idx < 0) color_idx = 0;
+            if (color_idx > 255) color_idx = 255;
+
+            grid[azimuth_idx * bins + proj_bin] = (uint8_t)color_idx;
         }
     }
 
     nexrad_image *image = nexrad_geo_project_polar_grid(proj, grid, rays, bins, table);
-
     free(grid);
+
+    return image;
+}
+
+nexrad_image *nexrad_level2_create_projected_image(
+    nexrad_message *message,
+    const char *moment_name,
+    int sweep_num,
+    nexrad_color_table *table,
+    nexrad_geo_projection *proj,
+    float scale,
+    float offset
+) {
+    nexrad_l2_volume_view *vol = nexrad_l2_volume_parse(message);
+    if (!vol) return NULL;
+
+    nexrad_l2_sweep_view *target_sweep = NULL;
+    for (size_t i = 0; i < vol->sweep_count; i++) {
+        if (vol->sweeps[i]->sweep_number == sweep_num) {
+            target_sweep = vol->sweeps[i];
+            break;
+        }
+    }
+
+    nexrad_image *image = NULL;
+    if (target_sweep) {
+        image = nexrad_level2_render_sweep_projected(target_sweep, moment_name, table, proj, scale, offset);
+    }
+
+    nexrad_l2_volume_destroy(vol);
     return image;
 }

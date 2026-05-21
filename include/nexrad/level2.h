@@ -188,4 +188,13 @@ nexrad_image *nexrad_level2_create_projected_image(
     float offset
 );
 
+nexrad_image *nexrad_level2_render_sweep_projected(
+    nexrad_l2_sweep_view *sweep,
+    const char *moment_name,
+    nexrad_color_table *table,
+    nexrad_geo_projection *proj,
+    float scale,
+    float offset
+);
+
 #endif /* _NEXRAD_LEVEL2_H */
