@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
         if (header->type == 31) {
             nexrad_level2_data_header *dh = nexrad_level2_get_data_header(data, size);
             if (dh) {
-                nexrad_level2_radial_data *rd = nexrad_level2_get_block(dh, "RAD");
+                nexrad_level2_radial_data *rd = nexrad_level2_get_block(dh, "RAD", size);
                 if (rd) {
                     if (count % 100 == 0) {
                         float az = nexrad_bswap_float(dh->azimuth_angle);
@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
                         printf("Radial %d (Type 31): Time %02d:%02d:%02d.%03d, Azimuth %.2f, Elevation %.2f, Bins %d\n",
                             count, (ms / 3600000), (ms / 60000) % 60, (ms / 1000) % 60, ms % 1000, az, el, (int)be16toh(rd->bin_count));
                         
-                        nexrad_level2_moment_data *ref = nexrad_level2_get_block(dh, "REF");
+                        nexrad_level2_moment_data *ref = nexrad_level2_get_block(dh, "REF", size);
                         if (ref) {
                             float start_km, end_km;
                             nexrad_level2_get_moment_range(ref, 0, &start_km, &end_km);

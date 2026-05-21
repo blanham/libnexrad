@@ -42,8 +42,12 @@ nexrad_level2_data_header *nexrad_level2_get_data_header(void *data, size_t size
     return (nexrad_level2_data_header *)data;
 }
 
-void *nexrad_level2_get_block(nexrad_level2_data_header *header, const char *name) {
+void *nexrad_level2_get_block(nexrad_level2_data_header *header, const char *name, size_t record_size) {
     if (header == NULL || name == NULL) {
+        return NULL;
+    }
+
+    if (record_size < sizeof(nexrad_level2_data_header)) {
         return NULL;
     }
 
@@ -51,6 +55,10 @@ void *nexrad_level2_get_block(nexrad_level2_data_header *header, const char *nam
     for (int i = 0; i < count && i < 9; i++) {
         uint32_t offset = be32toh(header->data_block_pointers[i]);
         if (offset == 0) continue;
+
+        if (offset > record_size || record_size - offset < 4) {
+            continue;
+        }
 
         nexrad_level2_data_block *block = (nexrad_level2_data_block *)((char *)header + offset);
         if (strncmp(block->type, name, 3) == 0) {
@@ -173,64 +181,43 @@ nexrad_image *nexrad_level2_create_projected_image(
     void *data = NULL;
     size_t size = 0;
 
+    nexrad_message_reset_level2(message);
+
     while (nexrad_message_next_level2_record(message, &mh, &data, &size) == 1) {
         if (mh->type == 31) {
             nexrad_level2_data_header *dh = nexrad_level2_get_data_header(data, size);
             if (!dh) continue;
             if (dh->elevation_number != sweep_num) continue;
 
-            nexrad_level2_moment_data *moment = nexrad_level2_get_block(dh, moment_name);
+            nexrad_level2_moment_data *moment = nexrad_level2_get_block(dh, moment_name, size);
             if (!moment) continue;
 
             float az_angle = nexrad_bswap_float(dh->azimuth_angle);
             int azimuth_idx = (int)round(az_angle * (rays / 360.0)) % rays;
 
             uint16_t moment_bins = be16toh(moment->bin_count);
-            for (int b = 0; b < moment_bins && b < bins; b++) {
+            int32_t first_gate_m = (int32_t)be16toh(moment->range_to_first_bin);
+            uint16_t gate_width_m = be16toh(moment->bin_size);
+
+            for (int b = 0; b < moment_bins; b++) {
                 float val = nexrad_level2_decode_moment(moment, b);
                 if (val == NEXRAD_LEVEL2_NO_DATA || val == NEXRAD_LEVEL2_RANGE_FOLDED) continue;
+
+                int32_t gate_center_m = first_gate_m + (int32_t)b * gate_width_m;
+                if (gate_center_m < 0) continue;
+
+                uint32_t proj_bin = (uint32_t)round((double)gate_center_m / rb_meters);
+                if (proj_bin >= bins) continue;
 
                 int color_idx = (int)((val * scale) + offset);
                 if (color_idx < 0) color_idx = 0;
                 if (color_idx > 255) color_idx = 255;
                 
-                grid[azimuth_idx * bins + b] = (uint8_t)color_idx;
+                grid[azimuth_idx * bins + proj_bin] = (uint8_t)color_idx;
             }
         } else if (mh->type == 1) {
-            nexrad_level2_message_type1 *t1 = (nexrad_level2_message_type1 *)data;
-            if (be16toh(t1->elevation_number) != sweep_num) continue;
-
-            float az_angle = (float)be16toh(t1->azimuth_angle) * (360.0f / 65536.0f);
-            int azimuth_idx = (int)round(az_angle * (rays / 360.0)) % rays;
-
-            uint16_t pointer = 0;
-            if (strncmp(moment_name, "REF", 3) == 0) pointer = be16toh(t1->sur_pointer);
-            else if (strncmp(moment_name, "VEL", 3) == 0) pointer = be16toh(t1->vel_pointer);
-            else if (strncmp(moment_name, "SW ", 3) == 0) pointer = be16toh(t1->sw_pointer);
-
-            if (pointer == 0) continue;
-
-            uint8_t *moment_data = (uint8_t *)data + pointer;
-            
-            for (int b = 0; b < bins; b++) {
-                uint8_t raw_val = moment_data[b];
-                if (raw_val <= 1) continue;
-
-                float val = 0;
-                if (strncmp(moment_name, "REF", 3) == 0) {
-                    val = ((float)raw_val - 65.0f) / 2.0f;
-                } else if (strncmp(moment_name, "VEL", 3) == 0) {
-                    float res = (be16toh(t1->vel_resolution) == 2) ? 0.5f : 1.0f;
-                    val = ((float)raw_val - 129.0f) * res;
-                } else if (strncmp(moment_name, "SW ", 3) == 0) {
-                    val = ((float)raw_val - 129.0f) / 2.0f;
-                }
-
-                int color_idx = (int)((val * scale) + offset);
-                if (color_idx < 0) color_idx = 0;
-                if (color_idx > 255) color_idx = 255;
-                grid[azimuth_idx * bins + b] = (uint8_t)color_idx;
-            }
+            /* Legacy Message Type 1 rendering is structurally wrong and temporarily disabled. */
+            continue;
         }
     }
 

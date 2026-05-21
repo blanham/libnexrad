@@ -175,6 +175,26 @@ void nexrad_image_draw_line(nexrad_image *image, nexrad_color color, int16_t x1,
     }
 }
 
+static inline int _get_pixel_coords(nexrad_render_point p, nexrad_point_type type, int16_t *x, int16_t *y) {
+    if (!p.visible) return -1;
+
+    switch (type) {
+        case NEXRAD_POINT_INT16:
+            *x = p.d.i16.x;
+            *y = p.d.i16.y;
+            break;
+        case NEXRAD_POINT_FLOAT:
+            *x = (int16_t)round(p.d.f32.x);
+            *y = (int16_t)round(p.d.f32.y);
+            break;
+        case NEXRAD_POINT_FIXED_16_16:
+            *x = (int16_t)((p.d.q16.x + 32768) >> 16);
+            *y = (int16_t)((p.d.q16.y + 32768) >> 16);
+            break;
+    }
+    return 0;
+}
+
 void nexrad_image_draw_features(nexrad_image *image, nexrad_projected_feature_list *features, nexrad_color color) {
     if (image == NULL || features == NULL) {
         return;
@@ -189,28 +209,43 @@ void nexrad_image_draw_features(nexrad_image *image, nexrad_projected_feature_li
         switch (pf->feature->geometry->type) {
             case NEXRAD_GEOMETRY_POINT:
                 for (size_t j = 0; j < pf->count; j++) {
-                    int16_t x = pf->points[j].x;
-                    int16_t y = pf->points[j].y;
-                    /* Draw 3x3 cross */
-                    nexrad_image_draw_pixel(image, color, x, y);
-                    nexrad_image_draw_pixel(image, color, x - 1, y);
-                    nexrad_image_draw_pixel(image, color, x + 1, y);
-                    nexrad_image_draw_pixel(image, color, x, y - 1);
-                    nexrad_image_draw_pixel(image, color, x, y + 1);
+                    int16_t x, y;
+                    if (_get_pixel_coords(pf->points[j], pf->type, &x, &y) == 0) {
+                        /* Draw 3x3 cross */
+                        nexrad_image_draw_pixel(image, color, x, y);
+                        nexrad_image_draw_pixel(image, color, x - 1, y);
+                        nexrad_image_draw_pixel(image, color, x + 1, y);
+                        nexrad_image_draw_pixel(image, color, x, y - 1);
+                        nexrad_image_draw_pixel(image, color, x, y + 1);
+                    }
                 }
                 break;
             case NEXRAD_GEOMETRY_LINESTRING:
                 for (size_t j = 0; j < pf->count - 1; j++) {
-                    nexrad_image_draw_line(image, color, pf->points[j].x, pf->points[j].y, pf->points[j + 1].x, pf->points[j + 1].y);
+                    int16_t x1, y1, x2, y2;
+                    if (_get_pixel_coords(pf->points[j], pf->type, &x1, &y1) == 0 &&
+                        _get_pixel_coords(pf->points[j + 1], pf->type, &x2, &y2) == 0) {
+                        nexrad_image_draw_line(image, color, x1, y1, x2, y2);
+                    }
                 }
                 break;
             case NEXRAD_GEOMETRY_POLYGON:
                 for (size_t j = 0; j < pf->count - 1; j++) {
-                    nexrad_image_draw_line(image, color, pf->points[j].x, pf->points[j].y, pf->points[j + 1].x, pf->points[j + 1].y);
+                    int16_t x1, y1, x2, y2;
+                    if (_get_pixel_coords(pf->points[j], pf->type, &x1, &y1) == 0 &&
+                        _get_pixel_coords(pf->points[j + 1], pf->type, &x2, &y2) == 0) {
+                        nexrad_image_draw_line(image, color, x1, y1, x2, y2);
+                    }
                 }
                 /* Close loop if not already closed */
-                if (pf->points[0].x != pf->points[pf->count - 1].x || pf->points[0].y != pf->points[pf->count - 1].y) {
-                    nexrad_image_draw_line(image, color, pf->points[pf->count - 1].x, pf->points[pf->count - 1].y, pf->points[0].x, pf->points[0].y);
+                {
+                    int16_t x1, y1, x2, y2;
+                    if (_get_pixel_coords(pf->points[0], pf->type, &x1, &y1) == 0 &&
+                        _get_pixel_coords(pf->points[pf->count - 1], pf->type, &x2, &y2) == 0) {
+                        if (x1 != x2 || y1 != y2) {
+                            nexrad_image_draw_line(image, color, x2, y2, x1, y1);
+                        }
+                    }
                 }
                 break;
         }

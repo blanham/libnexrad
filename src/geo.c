@@ -179,7 +179,13 @@ static nexrad_geo_projection *_projection_open(const char *path, size_t size, in
         goto error_open;
     }
 
-    if ((proj->header = mmap(NULL, proj->mapped_size, mmap_prot, mmap_flags, proj->fd, 0)) == NULL) {
+    if (new) {
+        if (ftruncate(proj->fd, (off_t)size) < 0) {
+            goto error_ftruncate;
+        }
+    }
+
+    if ((proj->header = mmap(NULL, proj->mapped_size, mmap_prot, mmap_flags, proj->fd, 0)) == MAP_FAILED) {
         goto error_mmap;
     }
 
@@ -191,6 +197,7 @@ static nexrad_geo_projection *_projection_open(const char *path, size_t size, in
 error_mmap:
     close(proj->fd);
 
+error_ftruncate:
 error_open:
     free(proj);
 
@@ -250,14 +257,6 @@ nexrad_geo_projection *nexrad_geo_projection_create_equirect(const char *path, n
         goto error_projection_open;
     }
 
-    if (lseek(proj->fd, size - 1, SEEK_SET) < 0) {
-        goto error_lseek;
-    }
-
-    if (write(proj->fd, "\0", 1) < 0) {
-        goto error_write;
-    }
-
     memcpy(proj->header->magic, NEXRAD_GEO_PROJECTION_MAGIC, 4);
 
     proj->header->version         = htobe16(NEXRAD_GEO_PROJECTION_VERSION);
@@ -310,10 +309,6 @@ nexrad_geo_projection *nexrad_geo_projection_create_equirect(const char *path, n
     }
 
     return proj;
-
-error_lseek:
-error_write:
-    nexrad_geo_projection_close(proj);
 
 error_projection_open:
     return NULL;
@@ -416,14 +411,6 @@ const char *path, nexrad_geo_spheroid *spheroid, nexrad_geo_cartesian *radar, ui
         goto error_projection_open;
     }
 
-    if (lseek(proj->fd, size - 1, SEEK_SET) < 0) {
-        goto error_lseek;
-    }
-
-    if (write(proj->fd, "\0", 1) < 0) {
-        goto error_write;
-    }
-
     memcpy(proj->header->magic, NEXRAD_GEO_PROJECTION_MAGIC, 4);
 
     proj->header->version         = htobe16(NEXRAD_GEO_PROJECTION_VERSION);
@@ -479,10 +466,6 @@ const char *path, nexrad_geo_spheroid *spheroid, nexrad_geo_cartesian *radar, ui
     }
 
     return proj;
-
-error_lseek:
-error_write:
-    nexrad_geo_projection_close(proj);
 
 error_projection_open:
     return NULL;
@@ -625,7 +608,7 @@ int nexrad_geo_projection_read_extents(nexrad_geo_projection *proj, nexrad_geo_c
 int nexrad_geo_projection_find_polar_point(nexrad_geo_projection *proj, uint16_t x, uint16_t y, nexrad_geo_polar *polar) {
     uint16_t width;
 
-    if (proj == NULL || x > be16toh(proj->header->width) || y > be16toh(proj->header->height)) {
+    if (proj == NULL || x >= be16toh(proj->header->width) || y >= be16toh(proj->header->height)) {
         return -1;
     }
 
@@ -849,7 +832,8 @@ nexrad_image *nexrad_geo_project_polar_grid(nexrad_geo_projection *proj, uint8_t
         return NULL;
     }
 
-    if ((entries = nexrad_color_table_get_entries(table, NULL)) == NULL) {
+    size_t color_count = 0;
+    if ((entries = nexrad_color_table_get_entries(table, &color_count)) == NULL || color_count < 256) {
         return NULL;
     }
 

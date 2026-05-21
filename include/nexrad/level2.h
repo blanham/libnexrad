@@ -167,7 +167,7 @@ typedef struct _nexrad_level2_message_type1 {
 #pragma pack(pop)
 
 nexrad_level2_data_header *nexrad_level2_get_data_header(void *data, size_t size);
-void *nexrad_level2_get_block(nexrad_level2_data_header *header, const char *name);
+void *nexrad_level2_get_block(nexrad_level2_data_header *header, const char *name, size_t record_size);
 
 #define NEXRAD_LEVEL2_NO_DATA -999.0f
 #define NEXRAD_LEVEL2_RANGE_FOLDED -998.0f
