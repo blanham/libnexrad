@@ -23,6 +23,14 @@ int main() {
     printf("dest2: '%s'\n", dest2);
     assert(strcmp(dest2, "hell") == 0);
 
+    // Test nexrad_bswap_float
+    float f = 1.0f; // 0x3f800000
+    float f_swapped = nexrad_bswap_float(f);
+    uint32_t f_bits;
+    memcpy(&f_bits, &f_swapped, 4);
+    printf("f: %f, f_swapped bits: 0x%08x\n", f, f_bits);
+    assert(f_bits == 0x0000803f);
+
     printf("All util tests passed!\n");
     return 0;
 }

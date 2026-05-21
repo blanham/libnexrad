@@ -41,13 +41,10 @@ int safecpy(char *dest, const char *src, size_t destlen, size_t srclen) {
 }
 
 float nexrad_bswap_float(float f) {
-    union {
-        uint32_t i;
-        float f;
-    } u;
-    u.f = f;
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-    u.i = be32toh(u.i);
-#endif
-    return u.f;
+    uint32_t bits;
+    memcpy(&bits, &f, sizeof(bits));
+    bits = bswap32(bits);
+    float out;
+    memcpy(&out, &bits, sizeof(out));
+    return out;
 }

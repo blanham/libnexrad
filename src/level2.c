@@ -79,8 +79,9 @@ float nexrad_level2_decode_moment(nexrad_level2_moment_data *moment, int bin) {
         uint8_t *data = (uint8_t *)moment->data;
         raw_val = data[bin];
     } else if (moment->data_size == 16) {
-        uint16_t *data = (uint16_t *)moment->data;
-        raw_val = be16toh(data[bin]);
+        uint16_t raw_be;
+        memcpy(&raw_be, (uint8_t *)moment->data + bin * 2, sizeof(raw_be));
+        raw_val = be16toh(raw_be);
     } else {
         return NEXRAD_LEVEL2_NO_DATA;
     }
