@@ -2,7 +2,7 @@ set(NEXRAD_SOURCES
     message.c chunk.c product.c symbology.c graphic.c
     tabular.c packet.c radial.c raster.c image.c
     color.c date.c error.c geo.c poly.c dvl.c
-    eet.c util.c pnglite.c geodesic.c level2.c
+    eet.c util.c pnglite.c geodesic.c level2.c l2_model.c
     station.c station_data.c
     aws.c feature.c geojson.c
 )

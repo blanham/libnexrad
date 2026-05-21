@@ -38,36 +38,6 @@
 
 #define NEXRAD_MESSAGE_UNKNOWN_FOOTER "\x0d\x0d\x0a\x03"
 
-struct _nexrad_message {
-    enum nexrad_level level;
-
-    size_t size;
-    size_t page_size;
-    size_t mapped_size;
-    int    fd;
-    void * data;
-    void * body;
-
-    /* Level III specific */
-    nexrad_unknown_header *      unknown_header;
-    nexrad_wmo_header *          wmo_header;
-    nexrad_message_header *      message_header;
-    nexrad_product_description * description;
-    nexrad_symbology_block *     symbology;
-    nexrad_graphic_block *       graphic;
-    nexrad_tabular_block *       tabular;
-
-    /* Level II specific */
-    nexrad_level2_volume_header * level2_volume_header;
-    size_t                        level2_offset;
-    void *                        level2_buffer;
-    int                           is_level2_buffer_allocated;
-    size_t                        level2_buffer_size;
-    size_t                        level2_buffer_offset;
-
-    enum nexrad_product_compression_type compression;
-};
-
 static inline int _header_size() {
     return sizeof(nexrad_message_header) + sizeof(nexrad_product_description);
 }
