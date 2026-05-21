@@ -26,6 +26,7 @@
 
 #include <stdint.h>
 #include <nexrad/geo.h>
+#include <nexrad/l2_model.h>
 
 typedef struct _nexrad_message nexrad_message;
 
