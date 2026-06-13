@@ -468,38 +468,49 @@ int nexrad_message_next_level2_record(nexrad_message *message,
             raw_size = (int32_t)be32toh((uint32_t)raw_size);
 
             if (raw_size == 0 || raw_size == INT32_MIN) {
-                 return 0; /* EOF or invalid */
-            }
-
-            size_t block_size = (size_t)llabs((long long)raw_size);
-
-            if (message->level2_offset + 4 + block_size > message->size) {
-                return -1; /* Malformed */
-            }
-
-            void *compressed_data = (char *)message->data + message->level2_offset + 4;
-
-            if (memcmp(compressed_data, "BZh", 3) == 0) {
-                if (message->level2_buffer == NULL) {
-                    message->level2_buffer = malloc(NEXRAD_MESSAGE_MAX_BODY_SIZE);
-                    if (message->level2_buffer == NULL) return -1;
-                    message->is_level2_buffer_allocated = 1;
+                /* No valid LDM control word here. An AR2V file whose FIRST block carries no LDM
+                 * framing is an UNCOMPRESSED Archive II message stream -- these 4 bytes are the
+                 * zero CTM prefix of the first message, not a control word -- so iterate the rest
+                 * of the file directly as one span. A zero word MID-stream is trailing padding
+                 * after the last bzip2 block (EOF). (Fixes 0-records on decompressed AR2V volumes.) */
+                if (message->level2_offset != NEXRAD_LEVEL2_VOLUME_HEADER_SIZE) {
+                    return 0; /* EOF */
                 }
-
-                unsigned int dest_len = NEXRAD_MESSAGE_MAX_BODY_SIZE;
-                int res = BZ2_bzBuffToBuffDecompress(message->level2_buffer, &dest_len, compressed_data, block_size, 0, 0);
-                if (res != BZ_OK) {
-                    return -1;
-                }
-
-                message->level2_buffer_size = dest_len;
+                message->level2_buffer = (char *)message->data + message->level2_offset;
+                message->level2_buffer_size = message->size - message->level2_offset;
                 message->level2_buffer_offset = 0;
-                message->level2_offset += 4 + block_size;
+                message->level2_offset = message->size; /* single uncompressed span */
             } else {
-                 message->level2_buffer = (char *)message->data + message->level2_offset;
-                 message->level2_buffer_size = message->size - message->level2_offset;
-                 message->level2_buffer_offset = 0;
-                 message->level2_offset = message->size; /* No more blocks */
+                size_t block_size = (size_t)llabs((long long)raw_size);
+
+                if (message->level2_offset + 4 + block_size > message->size) {
+                    return -1; /* Malformed */
+                }
+
+                void *compressed_data = (char *)message->data + message->level2_offset + 4;
+
+                if (memcmp(compressed_data, "BZh", 3) == 0) {
+                    if (message->level2_buffer == NULL) {
+                        message->level2_buffer = malloc(NEXRAD_MESSAGE_MAX_BODY_SIZE);
+                        if (message->level2_buffer == NULL) return -1;
+                        message->is_level2_buffer_allocated = 1;
+                    }
+
+                    unsigned int dest_len = NEXRAD_MESSAGE_MAX_BODY_SIZE;
+                    int res = BZ2_bzBuffToBuffDecompress(message->level2_buffer, &dest_len, compressed_data, block_size, 0, 0);
+                    if (res != BZ_OK) {
+                        return -1;
+                    }
+
+                    message->level2_buffer_size = dest_len;
+                    message->level2_buffer_offset = 0;
+                    message->level2_offset += 4 + block_size;
+                } else {
+                    message->level2_buffer = (char *)message->data + message->level2_offset;
+                    message->level2_buffer_size = message->size - message->level2_offset;
+                    message->level2_buffer_offset = 0;
+                    message->level2_offset = message->size; /* No more blocks */
+                }
             }
         } else {
              /* Uncompressed ARCHIVE2 format */
@@ -535,12 +546,17 @@ int nexrad_message_next_level2_record(nexrad_message *message,
     *data = (void *)((char *)h + sizeof(nexrad_level2_message_header));
     *size = msg_size - sizeof(nexrad_level2_message_header);
 
-    /* For legacy fixed-record ARCHIVE2, records are 2432 bytes.
-     * For modern AR2V, records are variable size (CTM + Message). */
+    /* Record stride. Legacy ARCHIVE2 records are a fixed 2432 bytes. For AR2V, only Message 31
+     * (digital radar data) is variable-length (12-byte CTM + message); the metadata messages
+     * (types 2/3/5/13/15/18) occupy fixed 2432-byte segments -- the canonical 134-segment metadata
+     * record. Striding metadata by 12+msg_size desyncs an uncompressed stream (no block boundary to
+     * re-sync at), so size by message type. */
     if (strncmp(message->level2_volume_header->tape, "ARCHIVE2", 8) == 0) {
         message->level2_buffer_offset += 2432;
-    } else {
+    } else if (h->type == 31) {
         message->level2_buffer_offset += 12 + msg_size;
+    } else {
+        message->level2_buffer_offset += 2432;
     }
 
     return 1;
